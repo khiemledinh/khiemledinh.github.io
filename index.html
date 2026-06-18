@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Portfolio cá nhân của Lê Đình Khiêm - Senior Android Developer. Khám phá các dự án di động, kỹ năng và hành trình sự nghiệp.">
+    <meta name="author" content="Lê Đình Khiêm">
+    <meta property="og:title" content="Lê Đình Khiêm | Android Developer Portfolio">
+    <meta property="og:description" content="Portfolio cá nhân thể hiện năng lực phát triển ứng dụng di động Android native bằng Kotlin/Java và Jetpack Compose.">
+    <meta property="og:type" content="website">
+    
+    <title>Lê Đình Khiêm | Android Developer Portfolio</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Blur Decorative Elements -->
+    <div class="blur-glow glow-1"></div>
+    <div class="blur-glow glow-2"></div>
+    <div class="blur-glow glow-3"></div>
+
+    <!-- Navigation Header -->
+    <header class="header">
+        <div class="nav-container">
+            <a href="#" class="logo">
+                khiem<span class="logo-accent">.dev</span>
+            </a>
+            
+            <!-- Desktop Navigation -->
+            <nav class="nav-links">
+                <a href="#hero" class="nav-link active">Trang chủ</a>
+                <a href="#about" class="nav-link">Giới thiệu</a>
+                <a href="#projects" class="nav-link">Dự án</a>
+                <a href="#experience" class="nav-link">Hành trình</a>
+                <a href="#contact" class="nav-link nav-cta">Liên hệ</a>
+            </nav>
+            
+            <!-- Mobile Menu Toggle Button -->
+            <button class="mobile-toggle" aria-label="Toggle Menu">
+                <i data-lucide="menu" class="menu-icon"></i>
+                <i data-lucide="x" class="close-icon hidden"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-menu">
+        <nav class="mobile-nav-links">
+            <a href="#hero" class="mobile-nav-link">Trang chủ</a>
+            <a href="#about" class="mobile-nav-link">Giới thiệu</a>
+            <a href="#projects" class="mobile-nav-link">Dự án</a>
+            <a href="#experience" class="mobile-nav-link">Hành trình</a>
+            <a href="#contact" class="mobile-nav-link mobile-nav-cta">Liên hệ với tôi</a>
+        </nav>
+    </div>
+
+    <main>
+        <!-- Hero Section -->
+        <section id="hero" class="hero-section">
+            <div class="section-container hero-container">
+                <div class="hero-content">
+                    <div class="hero-badge fade-in">
+                        <span class="badge-dot"></span>
+                        Sẵn sàng cho các cơ hội mới
+                    </div>
+                    <h1 class="hero-title fade-in delay-1">
+                        Xin chào, tôi là <br>
+                        <span class="gradient-text">Lê Đình Khiêm</span>
+                    </h1>
+                    <h2 class="hero-subtitle fade-in delay-2">
+                        Tôi là một <span id="typing-text" class="typed-cursor">Android Developer</span>
+                    </h2>
+                    <p class="hero-desc fade-in delay-3">
+                        Chuyên gia phát triển ứng dụng di động Android native. Đam mê xây dựng các giao diện UI mượt mà với Jetpack Compose, kiến trúc mã nguồn sạch (Clean Architecture) và tối ưu hóa hiệu suất ứng dụng.
+                    </p>
+                    <div class="hero-actions fade-in delay-4">
+                        <a href="#projects" class="btn btn-primary">
+                            Xem các ứng dụng
+                            <i data-lucide="arrow-right" class="btn-icon"></i>
+                        </a>
+                        <a href="#contact" class="btn btn-secondary">Liên hệ ngay</a>
+                    </div>
+                    <div class="hero-socials fade-in delay-5">
+                        <a href="https://github.com/khiemledinh" target="_blank" rel="noopener noreferrer" class="social-link" title="GitHub">
+                            <i data-lucide="github"></i>
+                        </a>
+                        <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" class="social-link" title="LinkedIn">
+                            <i data-lucide="linkedin"></i>
+                        </a>
+                        <a href="mailto:khiemledinh@gmail.com" class="social-link" title="Email">
+                            <i data-lucide="mail"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="hero-visual fade-in delay-2">
+                    <div class="visual-wrapper">
+                        <!-- Abstract Animated Graphic Container -->
+                        <div class="tech-stack-circles">
+                            <div class="circle outer-circle">
+                                <div class="icon-orbit" style="--orbit-delay: 0s;"><i data-lucide="smartphone"></i></div>
+                                <div class="icon-orbit" style="--orbit-delay: -2s;"><i data-lucide="cpu"></i></div>
+                                <div class="icon-orbit" style="--orbit-delay: -4s;"><i data-lucide="database"></i></div>
+                                <div class="icon-orbit" style="--orbit-delay: -6s;"><i data-lucide="git-branch"></i></div>
+                            </div>
+                            <div class="circle mid-circle">
+                                <div class="icon-orbit-reverse" style="--orbit-delay: -1s;"><i data-lucide="layers"></i></div>
+                                <div class="icon-orbit-reverse" style="--orbit-delay: -3s;"><i data-lucide="wifi"></i></div>
+                                <div class="icon-orbit-reverse" style="--orbit-delay: -5s;"><i data-lucide="tablet"></i></div>
+                            </div>
+                            <div class="circle inner-core">
+                                <i data-lucide="bot" class="core-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Scroll Down Indicator -->
+            <a href="#about" class="scroll-down-indicator" aria-label="Scroll to About Section">
+                <span class="mouse">
+                    <span class="mouse-wheel"></span>
+                </span>
+                <span class="arrows">
+                    <span></span>
+                    <span></span>
+                </span>
+            </a>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="about-section scroll-reveal">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-subtitle">Về bản thân tôi</span>
+                    <h2 class="section-title">Tôi là ai?</h2>
+                    <div class="section-line"></div>
+                </div>
+                
+                <div class="about-grid">
+                    <div class="about-info">
+                        <p class="about-text-lead">
+                            Một kỹ sư phát triển ứng dụng di động Android tập trung vào trải nghiệm người dùng mượt mà, cấu trúc mã nguồn tối ưu và hiệu năng phần cứng vượt trội.
+                        </p>
+                        <p class="about-text">
+                            Với hơn 4 năm kinh nghiệm chuyên sâu trong phát triển ứng dụng Android native, tôi đã trực tiếp tham gia xây dựng và xuất bản nhiều ứng dụng lên Google Play Store. Tôi luôn sử dụng các thư viện và công nghệ hiện đại nhất của Google để mang lại trải nghiệm tối ưu nhất cho người dùng cuối.
+                        </p>
+                        <p class="about-text">
+                            Tôi tin tưởng vào sức mạnh của Clean Architecture kết hợp với MVVM/MVI để duy trì các dự án lớn một cách dễ dàng. Đồng thời, tôi luôn chú trọng đến việc viết Unit Test, UI Test để đảm bảo chất lượng sản phẩm tốt nhất.
+                        </p>
+                    </div>
+                    
+                    <div class="about-skills">
+                        <h3 class="skills-title">Kỹ năng công nghệ</h3>
+                        <div class="skills-categories">
+                            <!-- Category: Core Android & Languages -->
+                            <div class="skill-category-card">
+                                <div class="category-header">
+                                    <i data-lucide="smartphone" class="category-icon"></i>
+                                    <h4>Android Native</h4>
+                                </div>
+                                <div class="skills-list">
+                                    <span class="skill-badge">Kotlin</span>
+                                    <span class="skill-badge">Java</span>
+                                    <span class="skill-badge">Jetpack Compose</span>
+                                    <span class="skill-badge">XML Layouts</span>
+                                    <span class="skill-badge">Android SDK</span>
+                                    <span class="skill-badge">Kotlin Coroutines & Flow</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Category: Architecture & Libraries -->
+                            <div class="skill-category-card">
+                                <div class="category-header">
+                                    <i data-lucide="layers" class="category-icon"></i>
+                                    <h4>Kiến trúc & Thư viện</h4>
+                                </div>
+                                <div class="skills-list">
+                                    <span class="skill-badge">Clean Architecture</span>
+                                    <span class="skill-badge">MVVM / MVI</span>
+                                    <span class="skill-badge">Dagger Hilt</span>
+                                    <span class="skill-badge">Retrofit & Ktor</span>
+                                    <span class="skill-badge">Room Database</span>
+                                    <span class="skill-badge">WorkManager</span>
+                                    <span class="skill-badge">Navigation Component</span>
+                                </div>
+                            </div>
+
+                            <!-- Category: Tools & Platforms -->
+                            <div class="skill-category-card">
+                                <div class="category-header">
+                                    <i data-lucide="wrench" class="category-icon"></i>
+                                    <h4>Công cụ & Khác</h4>
+                                </div>
+                                <div class="skills-list">
+                                    <span class="skill-badge">Android Studio</span>
+                                    <span class="skill-badge">Git & GitHub</span>
+                                    <span class="skill-badge">Firebase (FCM, Crashlytics)</span>
+                                    <span class="skill-badge">Google Play Console</span>
+                                    <span class="skill-badge">CI/CD (GitHub Actions)</span>
+                                    <span class="skill-badge">Unit Test (JUnit, Mockk)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Projects Section -->
+        <section id="projects" class="projects-section scroll-reveal">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-subtitle">Sản phẩm thực tế</span>
+                    <h2 class="section-title">Các dự án nổi bật</h2>
+                    <div class="section-line"></div>
+                </div>
+
+                <div class="projects-grid">
+                    <!-- Project 1 -->
+                    <div class="project-card">
+                        <div class="project-img-container">
+                            <div class="project-glow"></div>
+                            <div class="project-img-placeholder" style="background: linear-gradient(135deg, #0b0f19 0%, #1e293b 100%);">
+                                <i data-lucide="film" class="placeholder-icon"></i>
+                            </div>
+                        </div>
+                        <div class="project-info">
+                            <span class="project-tag">Android App</span>
+                            <h3 class="project-title">MoviePass</h3>
+                            <p class="project-desc">Ứng dụng xem thông tin và đặt vé phim trực tuyến. Xây dựng 100% bằng Jetpack Compose, sử dụng TMDB API để đồng bộ hóa dữ liệu thời gian thực.</p>
+                            <div class="project-tech">
+                                <span>Kotlin</span>
+                                <span>Compose</span>
+                                <span>Hilt</span>
+                                <span>Retrofit</span>
+                                <span>Flow</span>
+                            </div>
+                            <div class="project-links">
+                                <a href="https://github.com/khiemledinh" target="_blank" rel="noopener noreferrer" class="project-link-btn" title="Xem mã nguồn">
+                                    <i data-lucide="github"></i> Code
+                                </a>
+                                <a href="#" class="project-link-btn primary" title="Xem trang trực tiếp">
+                                    <i data-lucide="external-link"></i> Play Store
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Project 2 -->
+                    <div class="project-card">
+                        <div class="project-img-container">
+                            <div class="project-glow"></div>
+                            <div class="project-img-placeholder" style="background: linear-gradient(135deg, #0b0f19 0%, #0f172a 100%);">
+                                <i data-lucide="heart-pulse" class="placeholder-icon"></i>
+                            </div>
+                        </div>
+                        <div class="project-info">
+                            <span class="project-tag">Fitness App</span>
+                            <h3 class="project-title">FitTrack</h3>
+                            <p class="project-desc">Ứng dụng theo dõi sức khỏe và chỉ số luyện tập cá nhân. Tích hợp Google Fit API và Health Connect để thu thập chỉ số vận động của người dùng.</p>
+                            <div class="project-tech">
+                                <span>Kotlin</span>
+                                <span>Room DB</span>
+                                <span>WorkManager</span>
+                                <span>Google Fit</span>
+                            </div>
+                            <div class="project-links">
+                                <a href="https://github.com/khiemledinh" target="_blank" rel="noopener noreferrer" class="project-link-btn" title="Xem mã nguồn">
+                                    <i data-lucide="github"></i> Code
+                                </a>
+                                <a href="#" class="project-link-btn primary" title="Xem trang trực tiếp">
+                                    <i data-lucide="external-link"></i> Play Store
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Project 3 -->
+                    <div class="project-card">
+                        <div class="project-img-container">
+                            <div class="project-glow"></div>
+                            <div class="project-img-placeholder" style="background: linear-gradient(135deg, #0b0f19 0%, #111827 100%);">
+                                <i data-lucide="message-circle" class="placeholder-icon"></i>
+                            </div>
+                        </div>
+                        <div class="project-info">
+                            <span class="project-tag">Chat App</span>
+                            <h3 class="project-title">ChatSphere</h3>
+                            <p class="project-desc">Ứng dụng nhắn tin thời gian thực với mã hóa đầu cuối, hỗ trợ gửi tệp đa phương tiện nhanh chóng và thông báo đẩy thông minh.</p>
+                            <div class="project-tech">
+                                <span>Kotlin</span>
+                                <span>WebSockets</span>
+                                <span>FCM</span>
+                                <span>SQLite</span>
+                            </div>
+                            <div class="project-links">
+                                <a href="https://github.com/khiemledinh" target="_blank" rel="noopener noreferrer" class="project-link-btn" title="Xem mã nguồn">
+                                    <i data-lucide="github"></i> Code
+                                </a>
+                                <a href="#" class="project-link-btn primary" title="Xem trang trực tiếp">
+                                    <i data-lucide="external-link"></i> Play Store
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Experience Timeline Section -->
+        <section id="experience" class="experience-section scroll-reveal">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-subtitle">Hành trình sự nghiệp</span>
+                    <h2 class="section-title">Kinh nghiệm & Học vấn</h2>
+                    <div class="section-line"></div>
+                </div>
+
+                <div class="timeline">
+                    <!-- Timeline Item 1 -->
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-date">2024 - Hiện tại</div>
+                        <div class="timeline-content">
+                            <h3 class="timeline-title">Senior Android Engineer</h3>
+                            <span class="timeline-company">Công ty Công nghệ ABC</span>
+                            <p class="timeline-desc">
+                                Dẫn dắt nhóm phát triển ứng dụng di động Android chính. Tái cấu trúc thành công giao diện từ XML sang Jetpack Compose giúp giảm 35% lỗi giao diện. Tối ưu hóa memory leak và thời gian khởi động ứng dụng giảm 20%.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Timeline Item 2 -->
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-date">2022 - 2024</div>
+                        <div class="timeline-content">
+                            <h3 class="timeline-title">Android Developer</h3>
+                            <span class="timeline-company">Công ty Giải pháp Phần mềm XYZ</span>
+                            <p class="timeline-desc">
+                                Phát triển các tính năng thanh toán bằng mã QR, quản lý giỏ hàng offline-first sử dụng Room Database. Tích hợp hệ thống thông báo đẩy Firebase Cloud Messaging (FCM) tiếp cận hàng triệu người dùng hoạt động hàng ngày.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Timeline Item 3 -->
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-date">2018 - 2022</div>
+                        <div class="timeline-content">
+                            <h3 class="timeline-title">Cử nhân Công nghệ Thông tin</h3>
+                            <span class="timeline-company">Trường Đại học Công nghệ & Khoa học</span>
+                            <p class="timeline-desc">
+                                Tốt nghiệp chuyên ngành Kỹ thuật Phần mềm. Đạt điểm số xuất sắc trong đồ án tốt nghiệp về xây dựng hệ thống định vị nội khu trên nền tảng Android sử dụng tín hiệu BLE (Bluetooth Low Energy).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="contact-section scroll-reveal">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-subtitle">Liên hệ</span>
+                    <h2 class="section-title">Kết nối với tôi</h2>
+                    <div class="section-line"></div>
+                </div>
+
+                <div class="contact-grid">
+                    <div class="contact-info-cards">
+                        <h3 class="contact-title">Hãy cùng thảo luận về ý tưởng của bạn!</h3>
+                        <p class="contact-text">
+                            Tôi luôn hào hứng thảo luận về các dự án tiềm năng, cơ hội hợp tác hoặc đơn giản là chia sẻ niềm đam mê về lập trình ứng dụng di động. Gửi tin nhắn và tôi sẽ phản hồi sớm nhất có thể.
+                        </p>
+                        
+                        <div class="contact-details">
+                            <div class="contact-detail-card">
+                                <div class="detail-icon-wrapper">
+                                    <i data-lucide="mail"></i>
+                                </div>
+                                <div class="detail-content">
+                                    <span>Gửi email tại</span>
+                                    <a href="mailto:khiemledinh@gmail.com">khiemledinh@gmail.com</a>
+                                </div>
+                            </div>
+
+                            <div class="contact-detail-card">
+                                <div class="detail-icon-wrapper">
+                                    <i data-lucide="map-pin"></i>
+                                </div>
+                                <div class="detail-content">
+                                    <span>Địa điểm</span>
+                                    <p>Thành phố Hồ Chí Minh, Việt Nam</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="contact-form-wrapper">
+                        <form id="contact-form" class="contact-form">
+                            <div class="form-group">
+                                <label for="name">Họ và tên</label>
+                                <input type="text" id="name" name="name" required placeholder="Ví dụ: Nguyễn Văn A">
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Địa chỉ Email</label>
+                                <input type="email" id="email" name="email" required placeholder="Ví dụ: name@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="message">Nội dung tin nhắn</label>
+                                <textarea id="message" name="message" rows="5" required placeholder="Nhập tin nhắn của bạn tại đây..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-submit">
+                                <span>Gửi tin nhắn</span>
+                                <i data-lucide="send" class="btn-icon"></i>
+                            </button>
+                        </form>
+                        <!-- Form Success Message -->
+                        <div id="form-success" class="form-status-msg hidden">
+                            <div class="success-icon-wrapper">
+                                <i data-lucide="check-circle-2"></i>
+                            </div>
+                            <h3>Tin nhắn đã được gửi thành công!</h3>
+                            <p>Cảm ơn bạn đã liên hệ. Tôi sẽ phản hồi lại bạn sớm nhất có thể.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <p class="copyright">&copy; 2026 Lê Đình Khiêm. Đã đăng ký toàn quyền sở hữu trí tuệ.</p>
+            <div class="footer-links">
+                <a href="https://github.com/khiemledinh" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub</a>
+                <a href="#" class="footer-link">LinkedIn</a>
+                <a href="#hero" class="footer-link">Lên đầu trang</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="script.js"></script>
+</body>
+</html>

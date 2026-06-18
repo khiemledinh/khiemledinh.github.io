@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might be created by OS
+.DocumentRevisions-V100
+.Spotlight-V100
+.Trashes
+VolumeConfiguration.plist
+.VolumeIcon.icns
+.fseventsd
+
+# IDEs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
