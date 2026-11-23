@@ -184,14 +184,18 @@
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1.5">Chọn chất giọng Gemini HD:</label>
           <select id="singleVoiceSelect" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition cursor-pointer">
-            <option value="Aoede">Aoede — Nữ (Breezy, Nhẹ nhàng & Truyền cảm)</option>
-            <option value="Puck" selected>Puck — Nam (Upbeat, Năng động & Rõ ràng)</option>
-            <option value="Kore">Kore — Nữ (Firm, Điềm tĩnh & Chuẩn xác)</option>
-            <option value="Fenrir">Fenrir — Nam (Excitable, Trầm ấm & Ấm áp)</option>
-            <option value="Charon">Charon — Nam (Informative, Chuyên nghiệp & Tin tức)</option>
-            <option value="Zephyr">Zephyr — Nữ (Bright, Tươi tắn & Kể chuyện)</option>
-            <option value="Leda">Leda — Nữ (Youthful, Trong trẻo & Ngọt ngào)</option>
-            <option value="Orus">Orus — Nam (Firm, Đầy nội lực & Thuyết trình)</option>
+            <optgroup label="Giọng Nữ (Female)">
+              <option value="Aoede">Aoede (Nữ - Trầm ấm, tự nhiên)</option>
+              <option value="Kore">Kore (Nữ - Rõ ràng, chuyên nghiệp)</option>
+              <option value="Zephyr">Zephyr (Nữ - Tươi sáng, trẻ trung)</option>
+              <option value="Leda">Leda (Nữ - Cao, trẻ trung / Thiếu niên)</option>
+            </optgroup>
+            <optgroup label="Giọng Nam (Male)">
+              <option value="Puck" selected>Puck (Nam - Trẻ trung, năng động / Thiếu niên)</option>
+              <option value="Fenrir">Fenrir (Nam - Mạnh mẽ, dứt khoát)</option>
+              <option value="Charon">Charon (Nam - Trầm sâu, điềm đạm)</option>
+              <option value="Orus">Orus (Nam - Chững chạc, tin cậy)</option>
+            </optgroup>
           </select>
         </div>
 
@@ -390,7 +394,35 @@ David: Count me in, it supports three speakers simultaneously!"
   <!-- JAVASCRIPT APP LOGIC & GEMINI TTS API INTEGRATION -->
   <script>
     // --- GLOBAL CONSTANTS & STATE ---
-    const HD_VOICES = ["Aoede", "Puck", "Kore", "Fenrir", "Charon", "Zephyr", "Leda", "Orus"];
+    const VOICE_GROUPS = [
+      {
+        label: 'Giọng Nữ (Female)',
+        voices: [
+          { id: 'Aoede', label: 'Aoede (Nữ - Trầm ấm, tự nhiên)' },
+          { id: 'Kore', label: 'Kore (Nữ - Rõ ràng, chuyên nghiệp)' },
+          { id: 'Zephyr', label: 'Zephyr (Nữ - Tươi sáng, trẻ trung)' },
+          { id: 'Leda', label: 'Leda (Nữ - Cao, trẻ trung / Thiếu niên)' }
+        ]
+      },
+      {
+        label: 'Giọng Nam (Male)',
+        voices: [
+          { id: 'Puck', label: 'Puck (Nam - Trẻ trung, năng động / Thiếu niên)' },
+          { id: 'Fenrir', label: 'Fenrir (Nam - Mạnh mẽ, dứt khoát)' },
+          { id: 'Charon', label: 'Charon (Nam - Trầm sâu, điềm đạm)' },
+          { id: 'Orus', label: 'Orus (Nam - Chững chạc, tin cậy)' }
+        ]
+      }
+    ];
+
+    function buildVoiceOptionsHTML(selectedId) {
+      return VOICE_GROUPS.map(group => `
+                <optgroup label="${group.label}">
+                  ${group.voices.map(v => `<option value="${v.id}" ${v.id === selectedId ? 'selected' : ''}>${v.label}</option>`).join('')}
+                </optgroup>
+      `).join('');
+    }
+
     const DEFAULT_MODELS = [
       "gemini-3.8-flash",
       "gemini-3.8-pro",
@@ -583,9 +615,7 @@ David: Count me in, it supports three speakers simultaneously!"
         const card = document.createElement('div');
         card.className = "p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2";
         
-        const voiceOptionsHTML = HD_VOICES.map(v => 
-          `<option value="${v}" ${spk.voice === v ? 'selected' : ''}>${v}</option>`
-        ).join('');
+        const voiceOptionsHTML = buildVoiceOptionsHTML(spk.voice);
 
         card.innerHTML = `
           <div class="flex items-center justify-between">
