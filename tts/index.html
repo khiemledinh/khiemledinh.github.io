@@ -310,12 +310,19 @@ David: Count me in, it supports three speakers simultaneously!"
             <span id="statusText">Sẵn sàng tạo âm thanh</span>
           </div>
 
-          <!-- Generate Button -->
-          <button id="generateBtn" onclick="generateSpeech()" 
-            class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/50 transition-all transform active:scale-95 flex items-center justify-center gap-2.5">
-            <i class="fa-solid fa-play text-sm"></i>
-            <span>Tạo Giọng Đọc Gemini AI</span>
-          </button>
+          <!-- Generate / Cancel Buttons -->
+          <div class="w-full sm:w-auto flex items-center gap-2">
+            <button id="cancelGenerateBtn" onclick="cancelGeneration()" 
+              class="hidden w-full sm:w-auto px-4 py-3 bg-slate-800 hover:bg-rose-900/50 text-slate-200 hover:text-rose-200 border border-slate-700 hover:border-rose-700/60 font-semibold rounded-xl transition-all flex items-center justify-center gap-2">
+              <i class="fa-solid fa-xmark text-sm"></i>
+              <span>Hủy</span>
+            </button>
+            <button id="generateBtn" onclick="generateSpeech()" 
+              class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/50 transition-all transform active:scale-95 flex items-center justify-center gap-2.5">
+              <i class="fa-solid fa-play text-sm"></i>
+              <span>Tạo Giọng Đọc Gemini AI</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -530,6 +537,49 @@ David: Count me in, it supports three speakers simultaneously!"
         return true;
       }
       return /Please retry in/i.test(text) && /\b\d+\s*[hm]\b/i.test(text);
+    }
+
+    function isHighDemand503Error(status, message) {
+      const text = String(message || '').toLowerCase();
+      return status === 503 || text.includes('high demand') || text.includes('temporarily unavailable');
+    }
+
+    function setCancelButtonVisible(visible) {
+      const cancelBtn = document.getElementById('cancelGenerateBtn');
+      if (!cancelBtn) return;
+      cancelBtn.classList.toggle('hidden', !visible);
+      cancelBtn.disabled = false;
+    }
+
+    function cancelGeneration() {
+      generationCancelled = true;
+      const cancelBtn = document.getElementById('cancelGenerateBtn');
+      if (cancelBtn) {
+        cancelBtn.disabled = true;
+        cancelBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sm"></i> <span>Đang hủy...</span>`;
+      }
+      updateStatus('Đang hủy yêu cầu tạo giọng đọc...', 'amber');
+    }
+
+    async function waitForRetryCountdown(model, attempt, maxAttempts, delayMs) {
+      let remainingSec = Math.ceil(delayMs / 1000);
+      const genBtn = document.getElementById('generateBtn');
+
+      while (remainingSec > 0) {
+        if (generationCancelled) throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
+        const msg = `Server đang quá tải, tự động thử lại lần ${attempt}/${maxAttempts} sau ${remainingSec}s...`;
+        updateStatus(`[${model}] ${msg}`, 'amber');
+        if (genBtn) {
+          genBtn.innerHTML = `<i class="fa-solid fa-clock text-sm"></i> <span class="text-left">${msg}</span>`;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+        remainingSec -= 1;
+      }
+
+      if (generationCancelled) throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
+      if (genBtn) {
+        genBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sm"></i> <span>Đang thử lại [${model}]...</span>`;
+      }
     }
 
     function populateDefaultModelOptions(selectEl, selectedModel = DEFAULT_MODEL) {
@@ -937,6 +987,8 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
 
       const autoFallback = document.getElementById('autoFallbackToggle').checked;
 
+      generationCancelled = false;
+      setCancelButtonVisible(false);
       setLoadingState(true, 'Đang tạo dữ liệu âm thanh...');
 
       try {
@@ -1008,13 +1060,22 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
         addToHistory(scriptText.substring(0, 40) + '...', audioOutput, voiceLabel);
 
         showToast(audioOutput.extension === 'mp3' ? 'Tạo giọng đọc MP3 thành công!' : 'Tạo giọng đọc WAV (dự phòng) thành công!', 'success');
+        updateStatus('Hoàn tất! Sẵn sàng tạo clip tiếp theo.', 'emerald');
 
       } catch (err) {
         console.error("GenerateSpeech Error:", err);
-        showToast(`Lỗi tạo giọng đọc: ${err.message}`, 'error');
-        updateStatus(`Lỗi: ${err.message}`, 'rose');
+        const isCancelled = err && err.message === 'Đã hủy tạo giọng đọc theo yêu cầu.';
+        if (isCancelled) {
+          showToast('Đã hủy yêu cầu tạo giọng đọc.', 'info');
+          updateStatus('Đã hủy tạo giọng đọc theo yêu cầu.', 'slate');
+        } else {
+          showToast(`Lỗi tạo giọng đọc: ${err.message}`, 'error');
+          updateStatus(`Lỗi: ${err.message}`, 'rose');
+        }
       } finally {
-        setLoadingState(false);
+        setCancelButtonVisible(false);
+        generationCancelled = false;
+        setLoadingState(false, null, true);
       }
     }
 
@@ -1032,14 +1093,18 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
 
       for (let modelIndex = 0; modelIndex < modelsToTry.length; modelIndex++) {
         const model = modelsToTry[modelIndex];
+        if (generationCancelled) throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
         updateStatus(`Đang kết nối API: [${model}]...`, 'indigo');
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
         let attempt = 0;
         let delay = 1500;
-        const maxTransientRetries = 2; // total 3 attempts for 429/503
+        const maxTransientRetries = 2; // for short 429 rate-limit / transient network retries
+        const highDemandDelays = [3000, 5000, 8000, 12000, 15000];
 
         while (true) {
+          if (generationCancelled) throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
+
           try {
             const response = await fetch(apiUrl, {
               method: 'POST',
@@ -1053,18 +1118,35 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
               const message = errData.error?.message || `Lỗi API HTTP ${status}`;
 
               if (status === 404 || status === 400) {
+                setCancelButtonVisible(false);
                 lastError = new Error(message);
                 updateStatus(`Model [${model}] không khả dụng/hỗ trợ AUDIO (${status}), đang chuyển model dự phòng...`, 'amber');
                 break; // try next model immediately
               }
 
-              if (status === 429 || status === 503) {
-                if (status === 429 && isDailyQuotaExceededError(status, message)) {
-                  lastError = new Error(message);
-                  updateStatus(`Model [${model}] đã hết quota trong ngày, đang chuyển model dự phòng...`, 'amber');
-                  break; // daily quota exceeded: do not retry same model
-                }
+              if (status === 429 && isDailyQuotaExceededError(status, message)) {
+                setCancelButtonVisible(false);
+                lastError = new Error(message);
+                updateStatus(`Model [${model}] đã hết quota trong ngày, đang chuyển model dự phòng...`, 'amber');
+                break; // daily quota exceeded: do not retry same model
+              }
 
+              if (isHighDemand503Error(status, message)) {
+                if (attempt < highDemandDelays.length) {
+                  const waitMs = highDemandDelays[attempt];
+                  attempt++;
+                  lastError = new Error(message);
+                  setCancelButtonVisible(true);
+                  await waitForRetryCountdown(model, attempt, highDemandDelays.length, waitMs);
+                  continue;
+                }
+                setCancelButtonVisible(false);
+                lastError = new Error(message);
+                updateStatus(`Model [${model}] vẫn quá tải sau ${highDemandDelays.length} lần thử, đang chuyển model dự phòng...`, 'amber');
+                break; // move to next model after 5 retries
+              }
+
+              if (status === 429 || status === 503) {
                 if (attempt < maxTransientRetries) {
                   attempt++;
                   updateStatus(`Quá tải/giới hạn [${model}] (${status}), thử lại ${attempt}/${maxTransientRetries} sau ${delay / 1000}s...`, 'amber');
@@ -1072,15 +1154,18 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
                   delay *= 2;
                   continue;
                 }
+                setCancelButtonVisible(false);
                 lastError = new Error(message);
                 updateStatus(`Model [${model}] vẫn lỗi ${status}, đang chuyển model dự phòng...`, 'amber');
                 break; // move to next model after retries
               }
 
+              setCancelButtonVisible(false);
               lastError = new Error(message);
               break; // other HTTP errors: fallback to next model if available
             }
 
+            setCancelButtonVisible(false);
             const data = await response.json();
             const part = data?.candidates?.[0]?.content?.parts?.[0];
 
@@ -1103,6 +1188,10 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
             };
 
           } catch (err) {
+            if (err && err.message === 'Đã hủy tạo giọng đọc theo yêu cầu.') {
+              setCancelButtonVisible(false);
+              throw err;
+            }
             lastError = err;
             if (attempt < maxTransientRetries) {
               attempt++;
@@ -1111,6 +1200,7 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
               delay *= 2;
               continue;
             }
+            setCancelButtonVisible(false);
             break; // move to next model after retries
           }
         }
@@ -1453,16 +1543,29 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
     // --- UI HELPER & TOAST NOTIFICATIONS ---
     function setLoadingState(isLoading, statusText = '') {
       const genBtn = document.getElementById('generateBtn');
+      const cancelBtn = document.getElementById('cancelGenerateBtn');
+
       if (isLoading) {
         genBtn.disabled = true;
         genBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sm"></i> <span>Đang Tạo Giọng Đọc...</span>`;
         genBtn.classList.add('opacity-80');
-        updateStatus(statusText, 'indigo');
+        if (cancelBtn) {
+          cancelBtn.disabled = false;
+          cancelBtn.innerHTML = `<i class="fa-solid fa-xmark text-sm"></i> <span>Hủy</span>`;
+        }
+        if (statusText) updateStatus(statusText, 'indigo');
       } else {
         genBtn.disabled = false;
         genBtn.innerHTML = `<i class="fa-solid fa-play text-sm"></i> <span>Tạo Giọng Đọc Gemini AI</span>`;
         genBtn.classList.remove('opacity-80');
-        updateStatus('Hoàn tất! Sẵn sàng tạo clip tiếp theo.', 'emerald');
+        setCancelButtonVisible(false);
+        if (cancelBtn) {
+          cancelBtn.disabled = false;
+          cancelBtn.innerHTML = `<i class="fa-solid fa-xmark text-sm"></i> <span>Hủy</span>`;
+        }
+        if (statusText !== null) {
+          updateStatus(statusText || 'Hoàn tất! Sẵn sàng tạo clip tiếp theo.', statusText ? 'slate' : 'emerald');
+        }
       }
     }
 
