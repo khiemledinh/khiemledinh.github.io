@@ -120,12 +120,10 @@
           <div class="flex items-center gap-1 bg-slate-950 border border-slate-700/80 rounded-lg px-2 py-1">
             <i class="fa-solid fa-robot text-xs text-slate-400 pl-1"></i>
             <select id="modelSelect" onchange="handleModelSelectChange(this.value)" class="bg-transparent text-xs text-slate-200 focus:outline-none pr-1 py-0.5 border-none cursor-pointer max-w-[170px] truncate">
-              <!-- Default Options (Pre-populated) -->
-              <option value="gemini-3.8-flash" class="bg-slate-900 text-slate-200" selected>gemini-3.8-flash</option>
-              <option value="gemini-3.8-pro" class="bg-slate-900 text-slate-200">gemini-3.8-pro</option>
-              <option value="gemini-2.5-flash-preview-tts" class="bg-slate-900 text-slate-200">gemini-2.5-flash-preview-tts</option>
+              <!-- Default Options (Pre-populated, TTS prioritized) -->
+              <option value="gemini-2.5-flash-preview-tts" class="bg-slate-900 text-slate-200" selected>gemini-2.5-flash-preview-tts</option>
               <option value="gemini-2.5-pro-preview-tts" class="bg-slate-900 text-slate-200">gemini-2.5-pro-preview-tts</option>
-              <option value="gemini-2.0-flash" class="bg-slate-900 text-slate-200">gemini-2.0-flash</option>
+              <option value="gemini-3.8-flash" class="bg-slate-900 text-slate-200">gemini-3.8-flash</option>
               <option value="__CUSTOM__" class="bg-slate-900 text-amber-300 font-semibold">+ Nhập mã Model tùy chỉnh...</option>
             </select>
             <button onclick="fetchAvailableModels()" title="Làm mới toàn bộ danh sách Model từ API" class="text-slate-400 hover:text-indigo-400 p-1 transition">
@@ -141,7 +139,7 @@
           </div>
 
           <!-- Auto-fallback Toggle -->
-          <label class="flex items-center gap-1.5 cursor-pointer bg-slate-950 border border-slate-700/80 px-2.5 py-1.5 rounded-lg hover:border-slate-600 transition" title="Tự động thử model dự phòng nếu gặp lỗi 503 (quá tải) hoặc 429">
+          <label class="flex items-center gap-1.5 cursor-pointer bg-slate-950 border border-slate-700/80 px-2.5 py-1.5 rounded-lg hover:border-slate-600 transition" title="Tự động thử model dự phòng nếu gặp lỗi 404, 400, 503 hoặc 429">
             <input type="checkbox" id="autoFallbackToggle" checked class="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer">
             <span class="text-xs text-slate-300 font-medium whitespace-nowrap">Auto Fallback</span>
           </label>
@@ -429,12 +427,15 @@ David: Count me in, it supports three speakers simultaneously!"
       `).join('');
     }
 
-    const DEFAULT_MODELS = [
-      "gemini-3.8-flash",
-      "gemini-3.8-pro",
+    const PREFERRED_TTS_MODELS = [
       "gemini-2.5-flash-preview-tts",
       "gemini-2.5-pro-preview-tts",
-      "gemini-2.0-flash"
+      "gemini-3.8-flash"
+    ];
+    const DEFAULT_MODEL = PREFERRED_TTS_MODELS[0];
+    const DEPRECATED_MODEL_PATTERNS = [
+      /^gemini-2\.0-/,
+      /^gemini-1\.5-/
     ];
 
     let currentMode = 'single'; // 'single' or 'multi'
@@ -461,6 +462,29 @@ David: Count me in, it supports three speakers simultaneously!"
       const savedKey = localStorage.getItem('gemini_api_key') || '';
       if (savedKey) {
         document.getElementById('apiKeyInput').value = savedKey;
+      }
+
+      // Migrate deprecated or stored selected model
+      const storedModel = localStorage.getItem('selectedModel') || '';
+      let initialModel = storedModel;
+      if (!initialModel || DEPRECATED_MODELS.has(initialModel)) {
+        initialModel = DEFAULT_MODEL;
+        localStorage.setItem('selectedModel', initialModel);
+      }
+      const modelSelect = document.getElementById('modelSelect');
+      if (modelSelect && initialModel && initialModel !== '__CUSTOM__') {
+        const existingOption = Array.from(modelSelect.options).find(opt => opt.value === initialModel);
+        if (!existingOption) {
+          const opt = document.createElement('option');
+          opt.value = initialModel;
+          opt.textContent = initialModel;
+          opt.className = 'bg-slate-900 text-slate-200';
+          modelSelect.insertBefore(opt, modelSelect.firstChild);
+        }
+        modelSelect.value = initialModel;
+      }
+
+      if (savedKey) {
         // Auto trigger model fetch if key exists
         fetchAvailableModels();
       }
@@ -494,6 +518,29 @@ David: Count me in, it supports three speakers simultaneously!"
       return document.getElementById('apiKeyInput').value.trim() || localStorage.getItem('gemini_api_key') || '';
     }
 
+    function isDeprecatedModel(modelName) {
+      if (!modelName) return false;
+      return DEPRECATED_MODEL_PATTERNS.some(pattern => pattern.test(modelName));
+    }
+
+    function populateDefaultModelOptions(selectEl, selectedModel = DEFAULT_MODEL) {
+      selectEl.innerHTML = '';
+      PREFERRED_TTS_MODELS.forEach(modelName => {
+        const opt = document.createElement('option');
+        opt.value = modelName;
+        opt.textContent = modelName;
+        opt.className = 'bg-slate-900 text-slate-200';
+        if (modelName === selectedModel) opt.selected = true;
+        selectEl.appendChild(opt);
+      });
+
+      const customOpt = document.createElement('option');
+      customOpt.value = '__CUSTOM__';
+      customOpt.textContent = '+ Nhập mã Model tùy chỉnh...';
+      customOpt.className = 'bg-slate-900 text-amber-300 font-semibold';
+      selectEl.appendChild(customOpt);
+    }
+
     async function fetchAvailableModels() {
       const apiKey = getApiKey();
       if (!apiKey) return;
@@ -504,46 +551,77 @@ David: Count me in, it supports three speakers simultaneously!"
       try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${apiKey}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
+
         const data = await response.json();
         const select = document.getElementById('modelSelect');
-        const currentSelection = select.value;
+        let currentSelection = select.value || localStorage.getItem('selectedModel') || DEFAULT_MODEL;
+        if (isDeprecatedModel(currentSelection)) currentSelection = DEFAULT_MODEL;
 
-        // Clear existing options
+        const discoveredModels = (data.models || [])
+          .map(m => m.name.replace('models/', ''))
+          .filter(name => !isDeprecatedModel(name));
+
+        const uniqueModels = [];
+        const seen = new Set();
+        discoveredModels.forEach(name => {
+          if (!seen.has(name)) {
+            seen.add(name);
+            uniqueModels.push(name);
+          }
+        });
+
+        const prioritized = [];
+        const others = [];
+        uniqueModels.forEach(name => {
+          const lower = name.toLowerCase();
+          if (lower.includes('tts') || lower.includes('3.8')) {
+            prioritized.push(name);
+          } else {
+            others.push(name);
+          }
+        });
+
+        const sortByName = (a, b) => a.localeCompare(b);
+        prioritized.sort(sortByName);
+        others.sort(sortByName);
+
+        const orderedModels = [...new Set([...PREFERRED_TTS_MODELS, ...prioritized, ...others])]
+          .filter(name => !isDeprecatedModel(name));
+
         select.innerHTML = '';
 
-        if (data.models && data.models.length > 0) {
-          data.models.forEach(m => {
-            const modelName = m.name.replace('models/', '');
+        if (orderedModels.length > 0) {
+          orderedModels.forEach(modelName => {
             const opt = document.createElement('option');
             opt.value = modelName;
             opt.textContent = modelName;
             opt.className = 'bg-slate-900 text-slate-200';
-            if (modelName === currentSelection || modelName === 'gemini-3.8-flash') {
-              opt.selected = true;
-            }
             select.appendChild(opt);
           });
         } else {
-          // Fallback to defaults
-          DEFAULT_MODELS.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m; opt.textContent = m;
-            opt.className = 'bg-slate-900 text-slate-200';
-            select.appendChild(opt);
-          });
+          populateDefaultModelOptions(select, DEFAULT_MODEL);
         }
 
-        // Always append Custom option at the bottom
         const customOpt = document.createElement('option');
         customOpt.value = '__CUSTOM__';
         customOpt.textContent = '+ Nhập mã Model tùy chỉnh...';
         customOpt.className = 'bg-slate-900 text-amber-300 font-semibold';
         select.appendChild(customOpt);
 
+        if (!orderedModels.includes(currentSelection)) {
+          currentSelection = DEFAULT_MODEL;
+        }
+        select.value = currentSelection;
+        localStorage.setItem('selectedModel', currentSelection);
+
         showToast('Đã làm mới danh sách model thành công!', 'success');
       } catch (err) {
         console.error("ListModels Error:", err);
+        const select = document.getElementById('modelSelect');
+        const fallbackSelection = isDeprecatedModel(select.value) ? DEFAULT_MODEL : (select.value || DEFAULT_MODEL);
+        populateDefaultModelOptions(select, fallbackSelection);
+        select.value = fallbackSelection;
+        localStorage.setItem('selectedModel', fallbackSelection);
         showToast('Không thể tự động tải danh sách Model: ' + err.message, 'error');
       } finally {
         refreshIcon.classList.remove('fa-spin');
@@ -557,6 +635,9 @@ David: Count me in, it supports three speakers simultaneously!"
         document.getElementById('customModelInput').focus();
       } else {
         container.classList.add('hidden');
+        if (!isDeprecatedModel(val)) {
+          localStorage.setItem('selectedModel', val);
+        }
       }
     }
 
@@ -567,15 +648,18 @@ David: Count me in, it supports three speakers simultaneously!"
         return;
       }
       const select = document.getElementById('modelSelect');
-      
+
       // Create temporary option
       const opt = document.createElement('option');
       opt.value = val;
       opt.textContent = val + ' (Tùy chỉnh)';
       opt.selected = true;
       select.insertBefore(opt, select.firstChild);
-      
+
       document.getElementById('customModelContainer').classList.add('hidden');
+      if (!isDeprecatedModel(val)) {
+        localStorage.setItem('selectedModel', val);
+      }
       showToast(`Đã áp dụng model tùy chỉnh: ${val}`, 'success');
     }
 
@@ -927,23 +1011,26 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
 
     // Fetch API wrapper with retry & fallback
     async function fetchWithRetryAndFallback(apiKey, targetModel, payload, allowFallback) {
-      const modelsToTry = [targetModel];
+      const normalizedTarget = isDeprecatedModel(targetModel) ? DEFAULT_MODEL : targetModel;
+      const modelsToTry = [normalizedTarget];
       if (allowFallback) {
-        DEFAULT_MODELS.forEach(m => {
-          if (!modelsToTry.includes(m)) modelsToTry.push(m);
+        PREFERRED_TTS_MODELS.forEach(m => {
+          if (!modelsToTry.includes(m) && !isDeprecatedModel(m)) modelsToTry.push(m);
         });
       }
 
       let lastError = null;
 
-      for (const model of modelsToTry) {
+      for (let modelIndex = 0; modelIndex < modelsToTry.length; modelIndex++) {
+        const model = modelsToTry[modelIndex];
         updateStatus(`Đang kết nối API: [${model}]...`, 'indigo');
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-        let retries = 3;
+        let attempt = 0;
         let delay = 1500;
+        const maxTransientRetries = 2; // total 3 attempts for 429/503
 
-        while (retries > 0) {
+        while (true) {
           try {
             const response = await fetch(apiUrl, {
               method: 'POST',
@@ -951,20 +1038,40 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
               body: JSON.stringify(payload)
             });
 
-            if (response.status === 429 || response.status === 503) {
-              throw new Error(`Máy chủ quá tải (${response.status})`);
-            }
-
             if (!response.ok) {
               const errData = await response.json().catch(() => ({}));
-              throw new Error(errData.error?.message || `Lỗi API HTTP ${response.status}`);
+              const status = response.status;
+              const message = errData.error?.message || `Lỗi API HTTP ${status}`;
+
+              if (status === 404 || status === 400) {
+                lastError = new Error(message);
+                updateStatus(`Model [${model}] không khả dụng/hỗ trợ AUDIO (${status}), đang chuyển model dự phòng...`, 'amber');
+                break; // try next model immediately
+              }
+
+              if (status === 429 || status === 503) {
+                if (attempt < maxTransientRetries) {
+                  attempt++;
+                  updateStatus(`Quá tải/giới hạn [${model}] (${status}), thử lại ${attempt}/${maxTransientRetries} sau ${delay / 1000}s...`, 'amber');
+                  await new Promise(r => setTimeout(r, delay));
+                  delay *= 2;
+                  continue;
+                }
+                lastError = new Error(message);
+                updateStatus(`Model [${model}] vẫn lỗi ${status}, đang chuyển model dự phòng...`, 'amber');
+                break; // move to next model after retries
+              }
+
+              lastError = new Error(message);
+              break; // other HTTP errors: fallback to next model if available
             }
 
             const data = await response.json();
             const part = data?.candidates?.[0]?.content?.parts?.[0];
 
             if (!part || !part.inlineData || !part.inlineData.data) {
-              throw new Error("Phản hồi không chứa dữ liệu audio inlineData!");
+              lastError = new Error("Phản hồi không chứa dữ liệu audio inlineData!");
+              break; // try next model
             }
 
             // Extract sample rate if present in mimeType e.g., "audio/L16;rate=24000"
@@ -982,12 +1089,14 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
 
           } catch (err) {
             lastError = err;
-            retries--;
-            if (retries > 0) {
-              updateStatus(`Quá tải [${model}], thử lại ${3 - retries}/3 sau ${delay/1000}s...`, 'amber');
+            if (attempt < maxTransientRetries) {
+              attempt++;
+              updateStatus(`Lỗi kết nối [${model}], thử lại ${attempt}/${maxTransientRetries} sau ${delay / 1000}s...`, 'amber');
               await new Promise(r => setTimeout(r, delay));
-              delay *= 2; // Exponential backoff
+              delay *= 2;
+              continue;
             }
+            break; // move to next model after retries
           }
         }
       }
