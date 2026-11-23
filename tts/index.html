@@ -272,7 +272,7 @@
           </h2>
           
           <!-- Sample Load Buttons -->
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5 flex-wrap justify-end">
             <button onclick="loadPreset('single')" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1">
               <i class="fa-solid fa-file-lines text-indigo-400"></i> Mẫu Đơn giọng
             </button>
@@ -282,8 +282,11 @@
             <button onclick="applyScriptFormattingPreview()" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1" title="Chuẩn hóa kịch bản hội thoại">
               <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> Chuẩn hóa kịch bản
             </button>
-            <button onclick="clearScript()" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700/80 transition" title="Xóa nội dung">
+            <button onclick="clearScript()" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700/80 transition" title="Xóa nội dung kịch bản">
               <i class="fa-solid fa-trash-can"></i>
+            </button>
+            <button onclick="resetStudioToDefaults()" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1" title="Đặt lại cấu hình và kịch bản về mặc định (không xóa API Key)">
+              <i class="fa-solid fa-rotate-left text-amber-400"></i> Đặt lại mặc định
             </button>
           </div>
         </div>
@@ -383,7 +386,7 @@ David: Count me in, it supports three speakers simultaneously!"
           <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
             <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> Lịch sử phiên làm việc
           </h3>
-          <button onclick="clearHistory()" class="text-[11px] text-slate-500 hover:text-rose-400 transition">Xóa lịch sử</button>
+          <button onclick="clearHistory()" class="text-[11px] text-slate-500 hover:text-rose-400 transition">Xóa tất cả lịch sử</button>
         </div>
 
         <div id="historyList" class="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -462,51 +465,486 @@ David: Count me in, it supports three speakers simultaneously!"
     let analyser = null;
     let audioSource = null;
     let animFrameId = null;
+    let generationCancelled = false;
+
+    // Persistent state (localStorage + IndexedDB)
+    const STUDIO_STATE_KEY = 'tts_studio_state_v1';
+    const HISTORY_DB_NAME = 'GeminiVoiceStudioDB';
+    const HISTORY_DB_VERSION = 1;
+    const HISTORY_STORE_NAME = 'history';
+    const HISTORY_LIMIT = 15;
+
+    let historyDb = null;
+    let playbackSpeed = 1.0;
+    let saveStateTimer = null;
+    let suppressStateSave = false;
+
+    function getDefaultSpeakers() {
+      return [
+        { id: 1, name: 'Alex', voice: 'Puck' },
+        { id: 2, name: 'Sarah', voice: 'Aoede' },
+        { id: 3, name: 'David', voice: 'Fenrir' }
+      ];
+    }
+
+    function getDefaultStudioState() {
+      return {
+        mode: 'single',
+        speakerCount: 2,
+        singleVoice: 'Puck',
+        singleStylePrompt: '',
+        speakers: getDefaultSpeakers().map(s => ({ name: s.name, voice: s.voice })),
+        scriptText: '',
+        selectedModel: DEFAULT_MODEL,
+        customModel: '',
+        autoFallback: true,
+        playbackSpeed: 1.0
+      };
+    }
+
+    function normalizeStudioState(rawState) {
+      const defaults = getDefaultStudioState();
+      const state = Object.assign({}, defaults, rawState || {});
+
+      state.mode = state.mode === 'multi' ? 'multi' : 'single';
+      state.speakerCount = state.speakerCount === 3 ? 3 : 2;
+      state.singleVoice = typeof state.singleVoice === 'string' && state.singleVoice ? state.singleVoice : defaults.singleVoice;
+      state.singleStylePrompt = typeof state.singleStylePrompt === 'string' ? state.singleStylePrompt : '';
+
+      const rawSpeakers = Array.isArray(state.speakers) ? state.speakers : [];
+      state.speakers = defaults.speakers.map((def, idx) => {
+        const src = rawSpeakers[idx] || {};
+        return {
+          name: typeof src.name === 'string' && src.name.trim() ? src.name.trim() : def.name,
+          voice: typeof src.voice === 'string' && src.voice ? src.voice : def.voice
+        };
+      });
+
+      state.scriptText = typeof state.scriptText === 'string' ? state.scriptText : '';
+      let selectedModel = typeof state.selectedModel === 'string' && state.selectedModel ? state.selectedModel : DEFAULT_MODEL;
+      if (isDeprecatedModel(selectedModel) || selectedModel === 'gemini-3.8-flash') {
+        selectedModel = DEFAULT_MODEL;
+      }
+      state.selectedModel = selectedModel;
+      state.customModel = typeof state.customModel === 'string' ? state.customModel.trim() : '';
+      state.autoFallback = state.autoFallback !== false;
+
+      const allowedSpeeds = [0.75, 0.85, 1.0, 1.15, 1.25, 1.5];
+      const speedNum = Number(state.playbackSpeed);
+      state.playbackSpeed = allowedSpeeds.includes(speedNum) ? speedNum : 1.0;
+
+      return state;
+    }
+
+    function readStudioState() {
+      try {
+        const raw = localStorage.getItem(STUDIO_STATE_KEY);
+        if (!raw) return getDefaultStudioState();
+        return normalizeStudioState(JSON.parse(raw));
+      } catch (err) {
+        console.warn('Failed to read studio state:', err);
+        return getDefaultStudioState();
+      }
+    }
+
+    function collectStudioState() {
+      const modelSelect = document.getElementById('modelSelect');
+      const customModelInput = document.getElementById('customModelInput');
+      const selectedModelValue = modelSelect ? modelSelect.value : DEFAULT_MODEL;
+      return normalizeStudioState({
+        mode: currentMode,
+        speakerCount,
+        singleVoice: document.getElementById('singleVoiceSelect')?.value || 'Puck',
+        singleStylePrompt: document.getElementById('singleStylePrompt')?.value || '',
+        speakers: speakers.map(s => ({ name: s.name, voice: s.voice })),
+        scriptText: document.getElementById('scriptInput')?.value || '',
+        selectedModel: selectedModelValue || DEFAULT_MODEL,
+        customModel: customModelInput?.value || '',
+        autoFallback: document.getElementById('autoFallbackToggle')?.checked !== false,
+        playbackSpeed
+      });
+    }
+
+    function saveStudioState(immediate = false) {
+      if (suppressStateSave) return;
+      const write = () => {
+        try {
+          localStorage.setItem(STUDIO_STATE_KEY, JSON.stringify(collectStudioState()));
+        } catch (err) {
+          console.warn('Failed to save studio state:', err);
+        }
+      };
+      if (immediate) {
+        if (saveStateTimer) {
+          clearTimeout(saveStateTimer);
+          saveStateTimer = null;
+        }
+        write();
+      } else {
+        if (saveStateTimer) clearTimeout(saveStateTimer);
+        saveStateTimer = setTimeout(write, 300);
+      }
+    }
+
+    function getSelectedModelValue() {
+      const select = document.getElementById('modelSelect');
+      if (!select) return DEFAULT_MODEL;
+      if (select.value === '__CUSTOM__') {
+        const custom = document.getElementById('customModelInput')?.value.trim();
+        return custom || '__CUSTOM__';
+      }
+      return select.value || DEFAULT_MODEL;
+    }
+
+    function applyPlaybackSpeedUI(speed) {
+      const audio = document.getElementById('audioElement');
+      if (audio) audio.playbackRate = speed;
+      const btns = document.querySelectorAll('.speed-btn');
+      btns.forEach(btn => {
+        if (parseFloat(btn.textContent) === speed) {
+          btn.className = "speed-btn px-1.5 py-0.5 text-[11px] rounded bg-indigo-600 text-white font-medium transition";
+        } else {
+          btn.className = "speed-btn px-1.5 py-0.5 text-[11px] rounded text-slate-400 hover:text-white transition";
+        }
+      });
+    }
+
+    function applyStudioState(state) {
+      const safeState = normalizeStudioState(state);
+      suppressStateSave = true;
+      try {
+        currentMode = safeState.mode;
+        speakerCount = safeState.speakerCount;
+        speakers = getDefaultSpeakers().map((def, idx) => ({
+          id: def.id,
+          name: safeState.speakers[idx]?.name || def.name,
+          voice: safeState.speakers[idx]?.voice || def.voice
+        }));
+
+        const singleVoiceSelect = document.getElementById('singleVoiceSelect');
+        if (singleVoiceSelect) singleVoiceSelect.value = safeState.singleVoice;
+        const singleStylePrompt = document.getElementById('singleStylePrompt');
+        if (singleStylePrompt) singleStylePrompt.value = safeState.singleStylePrompt;
+
+        const scriptInput = document.getElementById('scriptInput');
+        if (scriptInput) {
+          scriptInput.value = safeState.scriptText || '';
+          document.getElementById('charCount').textContent = scriptInput.value.length;
+        }
+
+        const autoFallbackToggle = document.getElementById('autoFallbackToggle');
+        if (autoFallbackToggle) autoFallbackToggle.checked = !!safeState.autoFallback;
+
+        const modelSelect = document.getElementById('modelSelect');
+        const customModelInput = document.getElementById('customModelInput');
+        const customModelContainer = document.getElementById('customModelContainer');
+        if (modelSelect) {
+          if (safeState.selectedModel === '__CUSTOM__') {
+            const existingCustom = Array.from(modelSelect.options).find(opt => opt.value === '__CUSTOM__');
+            if (!existingCustom) {
+              const customOpt = document.createElement('option');
+              customOpt.value = '__CUSTOM__';
+              customOpt.textContent = '+ Nhập mã Model tùy chỉnh...';
+              customOpt.className = 'bg-slate-900 text-amber-300 font-semibold';
+              modelSelect.appendChild(customOpt);
+            }
+            modelSelect.value = '__CUSTOM__';
+            if (customModelContainer) customModelContainer.classList.toggle('hidden', false);
+            if (customModelInput) customModelInput.value = safeState.customModel || '';
+          } else {
+            const existingOption = Array.from(modelSelect.options).find(opt => opt.value === safeState.selectedModel);
+            if (!existingOption) {
+              const opt = document.createElement('option');
+              opt.value = safeState.selectedModel;
+              opt.textContent = safeState.selectedModel;
+              opt.className = 'bg-slate-900 text-slate-200';
+              modelSelect.insertBefore(opt, modelSelect.querySelector('option[value="__CUSTOM__"]') || null);
+            }
+            modelSelect.value = safeState.selectedModel;
+            if (customModelContainer) customModelContainer.classList.add('hidden');
+            if (customModelInput && safeState.customModel) customModelInput.value = safeState.customModel;
+          }
+        }
+
+        playbackSpeed = safeState.playbackSpeed;
+        applyPlaybackSpeedUI(playbackSpeed);
+
+        // Reflect mode/speaker UI without triggering state save loops
+        setSpeakerCount(speakerCount, { skipSave: true });
+        switchMode(currentMode, { skipSave: true });
+      } finally {
+        suppressStateSave = false;
+      }
+    }
+
+    function resetStudioToDefaults() {
+      const defaults = getDefaultStudioState();
+      suppressStateSave = true;
+      try {
+        localStorage.removeItem(STUDIO_STATE_KEY);
+      } catch (err) {
+        console.warn('Failed to remove studio state:', err);
+      } finally {
+        suppressStateSave = false;
+      }
+      applyStudioState(defaults);
+      // Also reset model dropdown to default (not custom)
+      const modelSelect = document.getElementById('modelSelect');
+      if (modelSelect) {
+        const hasDefault = Array.from(modelSelect.options).some(opt => opt.value === DEFAULT_MODEL);
+        if (!hasDefault) {
+          const opt = document.createElement('option');
+          opt.value = DEFAULT_MODEL;
+          opt.textContent = DEFAULT_MODEL;
+          opt.className = 'bg-slate-900 text-slate-200';
+          modelSelect.insertBefore(opt, modelSelect.querySelector('option[value="__CUSTOM__"]') || null);
+        }
+        modelSelect.value = DEFAULT_MODEL;
+      }
+      document.getElementById('customModelContainer')?.classList.add('hidden');
+      localStorage.setItem('selectedModel', DEFAULT_MODEL);
+      saveStudioState(true);
+      showToast('Đã đặt lại cấu hình và kịch bản về mặc định (giữ nguyên API Key).', 'success');
+    }
+
+    // --- INDEXEDDB HISTORY STORAGE ---
+    function openHistoryDB() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+          reject(new Error('Trình duyệt không hỗ trợ IndexedDB'));
+          return;
+        }
+        if (historyDb) {
+          resolve(historyDb);
+          return;
+        }
+        const request = indexedDB.open(HISTORY_DB_NAME, HISTORY_DB_VERSION);
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          let store;
+          if (!db.objectStoreNames.contains(HISTORY_STORE_NAME)) {
+            store = db.createObjectStore(HISTORY_STORE_NAME, { keyPath: 'id' });
+          } else {
+            store = request.transaction.objectStore(HISTORY_STORE_NAME);
+          }
+          if (store && !store.indexNames.contains('timestamp')) {
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+          }
+        };
+        request.onsuccess = () => {
+          historyDb = request.result;
+          historyDb.onversionchange = () => {
+            historyDb.close();
+            historyDb = null;
+          };
+          resolve(historyDb);
+        };
+        request.onerror = () => reject(request.error || new Error('Không thể mở IndexedDB lịch sử'));
+      });
+    }
+
+    function idbRequestToPromise(request) {
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function idbTxDone(tx) {
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    }
+
+    async function addHistoryRecordToDB(record) {
+      const db = await openHistoryDB();
+      const tx = db.transaction(HISTORY_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(HISTORY_STORE_NAME);
+      store.put(record);
+
+      // Keep only 15 most recent records
+      const allRecords = await idbRequestToPromise(store.getAll());
+      allRecords.sort((a, b) => (b.timestamp || b.id || 0) - (a.timestamp || a.id || 0));
+      const toDelete = allRecords.slice(HISTORY_LIMIT);
+      toDelete.forEach(item => store.delete(item.id));
+      await idbTxDone(tx);
+      return toDelete.map(item => item.id);
+    }
+
+    async function getAllHistoryRecordsFromDB() {
+      const db = await openHistoryDB();
+      const tx = db.transaction(HISTORY_STORE_NAME, 'readonly');
+      const store = tx.objectStore(HISTORY_STORE_NAME);
+      const records = await idbRequestToPromise(store.getAll());
+      await idbTxDone(tx).catch(() => {});
+      records.sort((a, b) => (b.timestamp || b.id || 0) - (a.timestamp || a.id || 0));
+      return records;
+    }
+
+    async function deleteHistoryRecordFromDB(id) {
+      const db = await openHistoryDB();
+      const tx = db.transaction(HISTORY_STORE_NAME, 'readwrite');
+      tx.objectStore(HISTORY_STORE_NAME).delete(id);
+      await idbTxDone(tx);
+    }
+
+    async function clearHistoryRecordsFromDB() {
+      const db = await openHistoryDB();
+      const tx = db.transaction(HISTORY_STORE_NAME, 'readwrite');
+      tx.objectStore(HISTORY_STORE_NAME).clear();
+      await idbTxDone(tx);
+    }
+
+    function revokeHistoryItemUrls(items) {
+      (items || []).forEach(item => {
+        if (item && item.url) {
+          try { URL.revokeObjectURL(item.url); } catch (_) {}
+        }
+      });
+    }
+
+    function historyRecordToRuntimeItem(record) {
+      const blob = record.audioBlob;
+      const formatLabel = record.formatLabel || (record.mimeType === 'audio/wav' ? 'WAV' : 'MP3');
+      const ext = formatLabel === 'WAV' ? 'wav' : 'mp3';
+      const fileName = record.fileName || `gemini-voice-${new Date(record.timestamp || Date.now()).toISOString().slice(0, 10)}.${ext}`;
+      const time = record.time || new Date(record.timestamp || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      const label = record.label || `${formatLabel} • ${record.model || 'Gemini TTS'}`;
+      return {
+        id: record.id,
+        timestamp: record.timestamp || record.id || Date.now(),
+        snippet: record.title || record.snippet || 'Âm thanh đã tạo',
+        label,
+        url: URL.createObjectURL(blob),
+        blob,
+        formatLabel,
+        fileName,
+        time,
+        mode: record.mode || 'single',
+        model: record.model || '',
+        mimeType: record.mimeType || blob?.type || (formatLabel === 'WAV' ? 'audio/wav' : 'audio/mp3')
+      };
+    }
+
+    function renderHistoryList() {
+      const historyList = document.getElementById('historyList');
+      if (!historyList) return;
+
+      historyList.innerHTML = '';
+      if (!historyItems.length) {
+        const empty = document.createElement('div');
+        empty.id = 'historyEmpty';
+        empty.className = 'text-center py-4 text-xs text-slate-600 italic';
+        empty.textContent = 'Chưa có file âm thanh nào được tạo trong phiên làm việc này.';
+        historyList.appendChild(empty);
+        return;
+      }
+
+      historyItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = "p-2.5 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between text-xs gap-2";
+        div.innerHTML = `
+          <div class="flex items-center gap-2 overflow-hidden mr-1 min-w-0">
+            <button onclick="playHistoryItem(${item.id})" class="w-7 h-7 rounded-full bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white flex items-center justify-center transition flex-shrink-0" title="Nghe lại">
+              <i class="fa-solid fa-play text-[10px] pl-0.5"></i>
+            </button>
+            <div class="truncate min-w-0">
+              <span class="text-slate-200 font-medium block truncate">${escapeHtml(item.snippet || '')}</span>
+              <span class="text-[10px] text-slate-500 font-mono">${escapeHtml(item.time || '')} &bull; ${escapeHtml(item.label || '')}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <a href="${item.url}" download="${item.fileName}" class="text-slate-400 hover:text-emerald-400 p-1.5 transition" title="Tải về file ${escapeHtml(item.formatLabel || '')}">
+              <i class="fa-solid fa-download"></i>
+            </a>
+            <button onclick="deleteHistoryItem(${item.id})" class="text-slate-500 hover:text-rose-400 p-1.5 transition" title="Xóa mục này">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        `;
+        historyList.appendChild(div);
+      });
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function loadHistoryFromDB() {
+      try {
+        const records = await getAllHistoryRecordsFromDB();
+        revokeHistoryItemUrls(historyItems);
+        historyItems = records.slice(0, HISTORY_LIMIT).map(historyRecordToRuntimeItem);
+        renderHistoryList();
+      } catch (err) {
+        console.warn('Failed to load history from IndexedDB:', err);
+        historyItems = [];
+        renderHistoryList();
+      }
+    }
 
     // --- INITIALIZATION ---
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       // Restore saved API Key
       const savedKey = localStorage.getItem('gemini_api_key') || '';
       if (savedKey) {
         document.getElementById('apiKeyInput').value = savedKey;
       }
 
-      // Migrate deprecated or stored selected model
-      const storedModel = localStorage.getItem('selectedModel') || '';
-      let initialModel = storedModel;
-      if (!initialModel || isDeprecatedModel(initialModel) || initialModel === 'gemini-3.8-flash') {
-        initialModel = DEFAULT_MODEL;
-        localStorage.setItem('selectedModel', initialModel);
-      }
-      const modelSelect = document.getElementById('modelSelect');
-      if (modelSelect && initialModel && initialModel !== '__CUSTOM__') {
-        const existingOption = Array.from(modelSelect.options).find(opt => opt.value === initialModel);
-        if (!existingOption) {
-          const opt = document.createElement('option');
-          opt.value = initialModel;
-          opt.textContent = initialModel;
-          opt.className = 'bg-slate-900 text-slate-200';
-          modelSelect.insertBefore(opt, modelSelect.firstChild);
+      // Migrate deprecated/legacy selected model key and restore full studio state
+      const legacyStoredModel = localStorage.getItem('selectedModel') || '';
+      if (legacyStoredModel) {
+        let migratedLegacy = legacyStoredModel;
+        if (isDeprecatedModel(migratedLegacy) || migratedLegacy === 'gemini-3.8-flash') {
+          migratedLegacy = DEFAULT_MODEL;
+          localStorage.setItem('selectedModel', migratedLegacy);
         }
-        modelSelect.value = initialModel;
       }
 
-      if (savedKey) {
-        // Auto trigger model fetch if key exists
-        fetchAvailableModels();
+      const restoredState = readStudioState();
+      applyStudioState(restoredState);
+
+      // Ensure selected model persistence is consistent with restored state
+      const restoredSelectedModel = restoredState.selectedModel || DEFAULT_MODEL;
+      if (restoredSelectedModel !== '__CUSTOM__') {
+        localStorage.setItem('selectedModel', restoredSelectedModel);
       }
 
-      // Render Speaker Panel initially
-      renderSpeakerCards();
-
-      // Script Textarea character counter
+      // Script Textarea character counter + debounced save
       const scriptArea = document.getElementById('scriptInput');
       scriptArea.addEventListener('input', () => {
         document.getElementById('charCount').textContent = scriptArea.value.length;
+        saveStudioState(false);
       });
+
+      // Immediate-save UI listeners
+      document.getElementById('singleVoiceSelect')?.addEventListener('change', () => saveStudioState(true));
+      document.getElementById('singleStylePrompt')?.addEventListener('input', () => saveStudioState(false));
+      document.getElementById('singlePresetStyle')?.addEventListener('change', () => saveStudioState(true));
+      document.getElementById('autoFallbackToggle')?.addEventListener('change', () => saveStudioState(true));
+      document.getElementById('customModelInput')?.addEventListener('change', () => saveStudioState(true));
+      document.getElementById('customModelInput')?.addEventListener('blur', () => saveStudioState(true));
 
       // Audio Player Listeners
       setupAudioElementListeners();
+
+      // Load persistent audio history from IndexedDB
+      await loadHistoryFromDB();
+
+      // Auto trigger model fetch if key exists (after state restore)
+      if (savedKey) {
+        fetchAvailableModels();
+      }
+
+      // Save normalized/restored state once
+      saveStudioState(true);
     });
 
     // --- API KEY & MODEL DISCOVERY LOGIC ---
@@ -613,8 +1051,12 @@ David: Count me in, it supports three speakers simultaneously!"
 
         const data = await response.json();
         const select = document.getElementById('modelSelect');
+        const customContainer = document.getElementById('customModelContainer');
+        const customInput = document.getElementById('customModelInput');
+
         let currentSelection = select.value || localStorage.getItem('selectedModel') || DEFAULT_MODEL;
-        if (isDeprecatedModel(currentSelection)) currentSelection = DEFAULT_MODEL;
+        const customSelected = currentSelection === '__CUSTOM__';
+        if (!customSelected && isDeprecatedModel(currentSelection)) currentSelection = DEFAULT_MODEL;
 
         const discoveredModels = (data.models || [])
           .map(m => m.name.replace('models/', ''))
@@ -658,7 +1100,13 @@ David: Count me in, it supports three speakers simultaneously!"
             select.appendChild(opt);
           });
         } else {
-          populateDefaultModelOptions(select, DEFAULT_MODEL);
+          PREFERRED_TTS_MODELS.forEach(modelName => {
+            const opt = document.createElement('option');
+            opt.value = modelName;
+            opt.textContent = modelName;
+            opt.className = 'bg-slate-900 text-slate-200';
+            select.appendChild(opt);
+          });
         }
 
         const customOpt = document.createElement('option');
@@ -667,20 +1115,38 @@ David: Count me in, it supports three speakers simultaneously!"
         customOpt.className = 'bg-slate-900 text-amber-300 font-semibold';
         select.appendChild(customOpt);
 
-        if (!orderedModels.includes(currentSelection)) {
-          currentSelection = DEFAULT_MODEL;
+        if (customSelected) {
+          select.value = '__CUSTOM__';
+          customContainer?.classList.remove('hidden');
+        } else {
+          if (!orderedModels.includes(currentSelection)) {
+            currentSelection = DEFAULT_MODEL;
+          }
+          select.value = currentSelection;
+          customContainer?.classList.add('hidden');
+          localStorage.setItem('selectedModel', currentSelection);
         }
-        select.value = currentSelection;
-        localStorage.setItem('selectedModel', currentSelection);
 
+        saveStudioState(true);
         showToast('Đã làm mới danh sách model thành công!', 'success');
       } catch (err) {
         console.error("ListModels Error:", err);
         const select = document.getElementById('modelSelect');
-        const fallbackSelection = isDeprecatedModel(select.value) ? DEFAULT_MODEL : (select.value || DEFAULT_MODEL);
-        populateDefaultModelOptions(select, fallbackSelection);
-        select.value = fallbackSelection;
-        localStorage.setItem('selectedModel', fallbackSelection);
+        const customContainer = document.getElementById('customModelContainer');
+        const customInput = document.getElementById('customModelInput');
+        const currentSelection = select.value;
+        if (currentSelection === '__CUSTOM__') {
+          populateDefaultModelOptions(select, DEFAULT_MODEL);
+          select.value = '__CUSTOM__';
+          customContainer?.classList.remove('hidden');
+        } else {
+          const fallbackSelection = isDeprecatedModel(currentSelection) ? DEFAULT_MODEL : (currentSelection || DEFAULT_MODEL);
+          populateDefaultModelOptions(select, fallbackSelection);
+          select.value = fallbackSelection;
+          customContainer?.classList.add('hidden');
+          localStorage.setItem('selectedModel', fallbackSelection);
+        }
+        saveStudioState(true);
         showToast('Không thể tự động tải danh sách Model: ' + err.message, 'error');
       } finally {
         refreshIcon.classList.remove('fa-spin');
@@ -698,6 +1164,7 @@ David: Count me in, it supports three speakers simultaneously!"
           localStorage.setItem('selectedModel', val);
         }
       }
+      saveStudioState(true);
     }
 
     function applyCustomModel() {
@@ -707,30 +1174,25 @@ David: Count me in, it supports three speakers simultaneously!"
         return;
       }
       const select = document.getElementById('modelSelect');
-
-      // Create temporary option
-      const opt = document.createElement('option');
-      opt.value = val;
-      opt.textContent = val + ' (Tùy chỉnh)';
-      opt.selected = true;
-      select.insertBefore(opt, select.firstChild);
-
-      document.getElementById('customModelContainer').classList.add('hidden');
+      document.getElementById('customModelInput').value = val;
+      select.value = '__CUSTOM__';
+      document.getElementById('customModelContainer').classList.remove('hidden');
       if (!isDeprecatedModel(val)) {
         localStorage.setItem('selectedModel', val);
       }
+      saveStudioState(true);
       showToast(`Đã áp dụng model tùy chỉnh: ${val}`, 'success');
     }
 
     // --- MODE SWITCHING & MULTI-SPEAKER RENDER ---
-    function switchMode(mode) {
-      currentMode = mode;
+    function switchMode(mode, options = {}) {
+      currentMode = mode === 'multi' ? 'multi' : 'single';
       const btnSingle = document.getElementById('btnModeSingle');
       const btnMulti = document.getElementById('btnModeMulti');
       const singlePanel = document.getElementById('singleConfigPanel');
       const multiPanel = document.getElementById('multiConfigPanel');
 
-      if (mode === 'single') {
+      if (currentMode === 'single') {
         btnSingle.className = "py-2 px-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 bg-indigo-600 text-white shadow-md shadow-indigo-600/30";
         btnMulti.className = "py-2 px-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200";
         singlePanel.classList.remove('hidden');
@@ -741,17 +1203,20 @@ David: Count me in, it supports three speakers simultaneously!"
         multiPanel.classList.remove('hidden');
         singlePanel.classList.add('hidden');
       }
+
+      if (!options.skipSave) saveStudioState(true);
     }
 
-    function setSpeakerCount(count) {
-      speakerCount = count;
-      document.getElementById('btnSpeakers2').className = count === 2 
+    function setSpeakerCount(count, options = {}) {
+      speakerCount = count === 3 ? 3 : 2;
+      document.getElementById('btnSpeakers2').className = speakerCount === 2 
         ? "px-2.5 py-1 text-[11px] font-medium rounded-md bg-indigo-600 text-white transition"
         : "px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-400 hover:text-slate-200 transition";
-      document.getElementById('btnSpeakers3').className = count === 3 
+      document.getElementById('btnSpeakers3').className = speakerCount === 3 
         ? "px-2.5 py-1 text-[11px] font-medium rounded-md bg-indigo-600 text-white transition"
         : "px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-400 hover:text-slate-200 transition";
       renderSpeakerCards();
+      if (!options.skipSave) saveStudioState(true);
     }
 
     function renderSpeakerCards() {
@@ -798,11 +1263,13 @@ David: Count me in, it supports three speakers simultaneously!"
     function updateSpeakerName(id, val) {
       const spk = speakers.find(s => s.id === id);
       if (spk) spk.name = val.trim() || `Speaker ${id}`;
+      saveStudioState(true);
     }
 
     function updateSpeakerVoice(id, val) {
       const spk = speakers.find(s => s.id === id);
       if (spk) spk.voice = val;
+      saveStudioState(true);
     }
 
     function insertSpeakerName(name) {
@@ -816,17 +1283,20 @@ David: Count me in, it supports three speakers simultaneously!"
       textarea.focus();
       textarea.selectionStart = textarea.selectionEnd = start + insertion.length;
       document.getElementById('charCount').textContent = textarea.value.length;
+      saveStudioState(true);
     }
 
     function applySingleStylePreset(val) {
       if (val) {
         document.getElementById('singleStylePrompt').value = val;
       }
+      saveStudioState(true);
     }
 
     function clearScript() {
       document.getElementById('scriptInput').value = '';
       document.getElementById('charCount').textContent = '0';
+      saveStudioState(true);
     }
 
     // --- SCRIPT PRESET LOADERS ---
@@ -853,6 +1323,7 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
         }
       }
       document.getElementById('charCount').textContent = textarea.value.length;
+      saveStudioState(true);
     }
 
     // --- DIALOGUE SCRIPT PREPROCESSING ---
@@ -957,6 +1428,7 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       const formatted = formatDialogueScript(rawText);
       textarea.value = formatted;
       document.getElementById('charCount').textContent = formatted.length;
+      saveStudioState(true);
       showToast('Đã chuẩn hóa kịch bản hội thoại!', 'success');
     }
 
@@ -1385,17 +1857,9 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
     }
 
     function setSpeed(speed) {
-      const audio = document.getElementById('audioElement');
-      audio.playbackRate = speed;
-
-      const btns = document.querySelectorAll('.speed-btn');
-      btns.forEach(btn => {
-        if (parseFloat(btn.textContent) === speed) {
-          btn.className = "speed-btn px-1.5 py-0.5 text-[11px] rounded bg-indigo-600 text-white font-medium transition";
-        } else {
-          btn.className = "speed-btn px-1.5 py-0.5 text-[11px] rounded text-slate-400 hover:text-white transition";
-        }
-      });
+      playbackSpeed = speed;
+      applyPlaybackSpeedUI(speed);
+      saveStudioState(true);
     }
 
     function formatTime(secs) {
@@ -1474,70 +1938,92 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       }
     }
 
-    // --- SESSION HISTORY LOGIC ---
-    function addToHistory(snippet, audioOutput, label) {
-      const historyList = document.getElementById('historyList');
-      const historyEmpty = document.getElementById('historyEmpty');
-
-      if (historyEmpty) historyEmpty.remove();
-
-      const item = {
-        id: Date.now(),
-        snippet: snippet,
-        label: `${audioOutput.formatLabel} • ${label}`,
-        url: URL.createObjectURL(audioOutput.blob),
-        formatLabel: audioOutput.formatLabel,
-        fileName: audioOutput.fileName,
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    // --- SESSION HISTORY LOGIC (IndexedDB + UI) ---
+    async function addToHistory(snippet, audioOutput, voiceLabel) {
+      const timestamp = Date.now();
+      const formatLabel = audioOutput.formatLabel || (audioOutput.extension === 'wav' ? 'WAV' : 'MP3');
+      const mimeType = audioOutput.blob?.type || (formatLabel === 'WAV' ? 'audio/wav' : 'audio/mp3');
+      const displayLabel = `${formatLabel} • ${voiceLabel || 'Gemini TTS'}`;
+      const record = {
+        id: timestamp,
+        timestamp,
+        title: snippet || 'Âm thanh đã tạo',
+        snippet: snippet || 'Âm thanh đã tạo',
+        mode: currentMode,
+        model: getSelectedModelValue(),
+        mimeType,
+        formatLabel,
+        fileName: audioOutput.fileName || `gemini-voice-${new Date(timestamp).toISOString().slice(0, 10)}.${audioOutput.extension || (formatLabel === 'WAV' ? 'wav' : 'mp3')}`,
+        audioBlob: audioOutput.blob,
+        label: displayLabel,
+        time: new Date(timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
       };
 
-      historyItems.unshift(item);
-
-      const div = document.createElement('div');
-      div.className = "p-2.5 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between text-xs";
-      div.innerHTML = `
-        <div class="flex items-center gap-2 overflow-hidden mr-2">
-          <button onclick="playHistoryItem(${item.id})" class="w-7 h-7 rounded-full bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white flex items-center justify-center transition flex-shrink-0">
-            <i class="fa-solid fa-play text-[10px] pl-0.5"></i>
-          </button>
-          <div class="truncate">
-            <span class="text-slate-200 font-medium block truncate">${item.snippet}</span>
-            <span class="text-[10px] text-slate-500 font-mono">${item.time} &bull; ${item.label}</span>
-          </div>
-        </div>
-        <a href="${item.url}" download="${item.fileName}" class="text-slate-400 hover:text-emerald-400 p-1.5 transition" title="Tải về file ${item.formatLabel}">
-          <i class="fa-solid fa-download"></i>
-        </a>
-      `;
-
-      historyList.prepend(div);
+      try {
+        await addHistoryRecordToDB(record);
+        await loadHistoryFromDB();
+      } catch (err) {
+        console.warn('Failed to persist history item to IndexedDB:', err);
+        // Fallback: keep at least current session item in memory/UI
+        const runtimeItem = historyRecordToRuntimeItem(record);
+        historyItems.unshift(runtimeItem);
+        // enforce limit in-memory
+        if (historyItems.length > HISTORY_LIMIT) {
+          const removed = historyItems.splice(HISTORY_LIMIT);
+          revokeHistoryItemUrls(removed);
+        }
+        renderHistoryList();
+      }
     }
 
     function playHistoryItem(id) {
       const item = historyItems.find(i => i.id === id);
-      if (item) {
-        const audioElement = document.getElementById('audioElement');
-        const downloadBtn = document.getElementById('downloadAudioBtn');
+      if (!item) return;
 
-        audioElement.src = item.url;
-        document.getElementById('playerCard').classList.remove('opacity-60', 'pointer-events-none');
-        downloadBtn.href = item.url;
-        downloadBtn.download = item.fileName || 'gemini-voice.mp3';
-        downloadBtn.innerHTML = item.formatLabel === 'WAV'
-          ? '<i class="fa-solid fa-download"></i> Tải File WAV (.wav)'
-          : '<i class="fa-solid fa-download"></i> Tải File MP3 (.mp3)';
-        document.getElementById('activeVoiceInfo').textContent = item.label;
-        audioElement.play();
+      const audioElement = document.getElementById('audioElement');
+      const downloadBtn = document.getElementById('downloadAudioBtn');
+
+      audioElement.src = item.url;
+      document.getElementById('playerCard').classList.remove('opacity-60', 'pointer-events-none');
+      downloadBtn.href = item.url;
+      downloadBtn.download = item.fileName || 'gemini-voice.mp3';
+      downloadBtn.innerHTML = item.formatLabel === 'WAV'
+        ? '<i class="fa-solid fa-download"></i> Tải File WAV (.wav)'
+        : '<i class="fa-solid fa-download"></i> Tải File MP3 (.mp3)';
+      document.getElementById('activeVoiceInfo').textContent = item.label || '';
+      applyPlaybackSpeedUI(playbackSpeed);
+      audioElement.play().catch(e => console.log('Playback error:', e));
+    }
+
+    async function deleteHistoryItem(id) {
+      const item = historyItems.find(i => i.id === id);
+      if (item && item.url) {
+        try { URL.revokeObjectURL(item.url); } catch (_) {}
+      }
+      historyItems = historyItems.filter(i => i.id !== id);
+      renderHistoryList();
+
+      try {
+        await deleteHistoryRecordFromDB(id);
+      } catch (err) {
+        console.warn('Failed to delete history item from IndexedDB:', err);
+        showToast('Không thể xóa mục lịch sử khỏi bộ nhớ trình duyệt.', 'error');
       }
     }
 
-    function clearHistory() {
+    async function clearHistory() {
+      revokeHistoryItemUrls(historyItems);
       historyItems = [];
-      document.getElementById('historyList').innerHTML = `
-        <div id="historyEmpty" class="text-center py-4 text-xs text-slate-600 italic">
-          Chưa có file âm thanh nào được tạo trong phiên làm việc này.
-        </div>
-      `;
+      renderHistoryList();
+
+      try {
+        await clearHistoryRecordsFromDB();
+      } catch (err) {
+        console.warn('Failed to clear history from IndexedDB:', err);
+        showToast('Không thể xóa toàn bộ lịch sử khỏi IndexedDB.', 'error');
+        return;
+      }
+      showToast('Đã xóa toàn bộ lịch sử âm thanh.', 'success');
     }
 
     // --- UI HELPER & TOAST NOTIFICATIONS ---
