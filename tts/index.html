@@ -467,7 +467,7 @@ David: Count me in, it supports three speakers simultaneously!"
       // Migrate deprecated or stored selected model
       const storedModel = localStorage.getItem('selectedModel') || '';
       let initialModel = storedModel;
-      if (!initialModel || DEPRECATED_MODELS.has(initialModel)) {
+      if (!initialModel || isDeprecatedModel(initialModel) || initialModel === 'gemini-3.8-flash') {
         initialModel = DEFAULT_MODEL;
         localStorage.setItem('selectedModel', initialModel);
       }
@@ -521,6 +521,15 @@ David: Count me in, it supports three speakers simultaneously!"
     function isDeprecatedModel(modelName) {
       if (!modelName) return false;
       return DEPRECATED_MODEL_PATTERNS.some(pattern => pattern.test(modelName));
+    }
+
+    function isDailyQuotaExceededError(status, message) {
+      if (status !== 429) return false;
+      const text = String(message || '');
+      if (text.includes('Generate content requests per day') || text.includes('limit: 20')) {
+        return true;
+      }
+      return /Please retry in/i.test(text) && /\b\d+\s*[hm]\b/i.test(text);
     }
 
     function populateDefaultModelOptions(selectEl, selectedModel = DEFAULT_MODEL) {
@@ -1050,6 +1059,12 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
               }
 
               if (status === 429 || status === 503) {
+                if (status === 429 && isDailyQuotaExceededError(status, message)) {
+                  lastError = new Error(message);
+                  updateStatus(`Model [${model}] đã hết quota trong ngày, đang chuyển model dự phòng...`, 'amber');
+                  break; // daily quota exceeded: do not retry same model
+                }
+
                 if (attempt < maxTransientRetries) {
                   attempt++;
                   updateStatus(`Quá tải/giới hạn [${model}] (${status}), thử lại ${attempt}/${maxTransientRetries} sau ${delay / 1000}s...`, 'amber');
