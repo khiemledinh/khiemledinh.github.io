@@ -264,28 +264,40 @@
       <div class="glass-panel rounded-2xl p-4 shadow-sm flex flex-col flex-1">
         
         <!-- Editor Controls Header -->
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h2 class="text-xs font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-            <i class="fa-solid fa-file-pen text-indigo-400"></i> Soạn thảo kịch bản Tiếng Anh
-          </h2>
-          
-          <!-- Sample Load Buttons -->
-          <div class="flex items-center gap-1.5 flex-wrap justify-end">
-            <button onclick="loadPreset('single')" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1">
-              <i class="fa-solid fa-file-lines text-indigo-400"></i> Mẫu Đơn giọng
-            </button>
-            <button onclick="loadPreset('multi')" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1">
-              <i class="fa-solid fa-comments text-indigo-400"></i> Mẫu Hội thoại
-            </button>
-            <button onclick="applyScriptFormattingPreview()" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1" title="Chuẩn hóa kịch bản hội thoại">
-              <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> Chuẩn hóa kịch bản
-            </button>
-            <button onclick="clearScript()" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700/80 transition" title="Xóa nội dung kịch bản">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
-            <button onclick="resetStudioToDefaults()" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1" title="Đặt lại cấu hình và kịch bản về mặc định (không xóa API Key)">
-              <i class="fa-solid fa-rotate-left text-amber-400"></i> Đặt lại mặc định
-            </button>
+        <div class="mb-3 space-y-2">
+          <!-- Hàng 1: Tiêu đề & Nút hệ thống -->
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-xs font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-file-pen text-indigo-400"></i> SOẠN THẢO KỊCH BẢN TIẾNG ANH
+            </h2>
+            <div class="flex items-center gap-1.5">
+              <button onclick="clearScript()" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700/80 transition" title="Xóa nội dung kịch bản">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+              <button onclick="resetStudioToDefaults()" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1" title="Đặt lại cấu hình và kịch bản về mặc định (không xóa API Key)">
+                <i class="fa-solid fa-rotate-left text-amber-400"></i> Đặt lại mặc định
+              </button>
+            </div>
+          </div>
+
+          <!-- Hàng 2: Thanh công cụ kịch bản -->
+          <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-1.5 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button onclick="loadPreset('single')" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1">
+                <i class="fa-solid fa-file-lines text-indigo-400"></i> Mẫu Đơn giọng
+              </button>
+              <button onclick="loadPreset('multi')" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1">
+                <i class="fa-solid fa-comments text-indigo-400"></i> Mẫu Hội thoại
+              </button>
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap justify-end">
+              <button id="aiNormalizeBtn" onclick="normalizeScriptWithAI()" class="px-3 py-1.5 text-[11px] bg-indigo-600/90 hover:bg-indigo-500 text-white rounded-lg border border-indigo-500/60 shadow-sm shadow-indigo-900/30 transition flex items-center gap-1.5 font-medium" title="Chuẩn hóa kịch bản bằng AI (Gemini)">
+                <i class="fa-solid fa-sparkles text-indigo-100"></i> Chuẩn hóa bằng AI
+              </button>
+              <button id="revertNormalizeBtn" onclick="revertToOriginalScript()" disabled class="hidden px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="Quay lại kịch bản trước lần chuẩn hóa gần nhất">
+                <i class="fa-solid fa-rotate-left text-slate-400"></i> Quay lại kịch bản gốc
+              </button>
+            </div>
           </div>
         </div>
 
@@ -463,9 +475,9 @@ David: Count me in, it supports three speakers simultaneously!"
     let currentMode = 'single'; // 'single' or 'multi'
     let speakerCount = 2; // 2 or 3
     let speakers = [
-      { id: 1, name: 'Alex', voice: 'Puck' },
-      { id: 2, name: 'Sarah', voice: 'Aoede' },
-      { id: 3, name: 'David', voice: 'Fenrir' }
+      { id: 1, name: 'Alex', voice: 'Puck', description: '' },
+      { id: 2, name: 'Sarah', voice: 'Aoede', description: '' },
+      { id: 3, name: 'David', voice: 'Fenrir', description: '' }
     ];
 
     let currentAudioBlob = null;
@@ -478,6 +490,7 @@ David: Count me in, it supports three speakers simultaneously!"
     let audioSource = null;
     let animFrameId = null;
     let generationCancelled = false;
+    let lastScriptBeforeNormalization = null;
 
     // Persistent state (localStorage + IndexedDB)
     const STUDIO_STATE_KEY = 'tts_studio_state_v1';
@@ -493,9 +506,9 @@ David: Count me in, it supports three speakers simultaneously!"
 
     function getDefaultSpeakers() {
       return [
-        { id: 1, name: 'Alex', voice: 'Puck' },
-        { id: 2, name: 'Sarah', voice: 'Aoede' },
-        { id: 3, name: 'David', voice: 'Fenrir' }
+        { id: 1, name: 'Alex', voice: 'Puck', description: '' },
+        { id: 2, name: 'Sarah', voice: 'Aoede', description: '' },
+        { id: 3, name: 'David', voice: 'Fenrir', description: '' }
       ];
     }
 
@@ -505,7 +518,7 @@ David: Count me in, it supports three speakers simultaneously!"
         speakerCount: 2,
         singleVoice: 'Puck',
         singleStylePrompt: '',
-        speakers: getDefaultSpeakers().map(s => ({ name: s.name, voice: s.voice })),
+        speakers: getDefaultSpeakers().map(s => ({ name: s.name, voice: s.voice, description: s.description })),
         scriptText: '',
         selectedModel: DEFAULT_MODEL,
         customModel: '',
@@ -528,7 +541,8 @@ David: Count me in, it supports three speakers simultaneously!"
         const src = rawSpeakers[idx] || {};
         return {
           name: typeof src.name === 'string' && src.name.trim() ? src.name.trim() : def.name,
-          voice: typeof src.voice === 'string' && src.voice ? src.voice : def.voice
+          voice: typeof src.voice === 'string' && src.voice ? src.voice : def.voice,
+          description: typeof src.description === 'string' ? src.description.trim() : (def.description || '')
         };
       });
 
@@ -573,7 +587,7 @@ David: Count me in, it supports three speakers simultaneously!"
         speakerCount,
         singleVoice: document.getElementById('singleVoiceSelect')?.value || 'Puck',
         singleStylePrompt: document.getElementById('singleStylePrompt')?.value || '',
-        speakers: speakers.map(s => ({ name: s.name, voice: s.voice })),
+        speakers: speakers.map(s => ({ name: s.name, voice: s.voice, description: s.description || '' })),
         scriptText: document.getElementById('scriptInput')?.value || '',
         selectedModel: selectedModelValue || DEFAULT_MODEL,
         customModel: customModelInput?.value || '',
@@ -635,7 +649,8 @@ David: Count me in, it supports three speakers simultaneously!"
         speakers = getDefaultSpeakers().map((def, idx) => ({
           id: def.id,
           name: safeState.speakers[idx]?.name || def.name,
-          voice: safeState.speakers[idx]?.voice || def.voice
+          voice: safeState.speakers[idx]?.voice || def.voice,
+          description: safeState.speakers[idx]?.description || ''
         }));
 
         const singleVoiceSelect = document.getElementById('singleVoiceSelect');
@@ -720,6 +735,8 @@ David: Count me in, it supports three speakers simultaneously!"
       }
       document.getElementById('customModelContainer')?.classList.add('hidden');
       localStorage.setItem('selectedModel', DEFAULT_MODEL);
+      lastScriptBeforeNormalization = null;
+      setRevertNormalizationButtonState(false);
       saveStudioState(true);
       showToast('Đã đặt lại cấu hình và kịch bản về mặc định (giữ nguyên API Key).', 'success');
     }
@@ -1259,12 +1276,15 @@ David: Count me in, it supports three speakers simultaneously!"
         
         const voiceOptionsHTML = buildVoiceOptionsHTML(spk.voice);
 
+        const escapedNameAttr = escapeHtml(spk.name || '');
+        const escapedDescription = escapeHtml(spk.description || '');
+
         card.innerHTML = `
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-indigo-400 flex items-center gap-1">
               <i class="fa-solid fa-user-gear"></i> Nhân vật ${idx + 1}
             </span>
-            <button onclick="insertSpeakerName('${spk.name}')" 
+            <button onclick="insertSpeakerNameById(${spk.id})" 
               class="px-2 py-0.5 text-[10px] bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/40 border border-indigo-500/30 rounded font-medium transition flex items-center gap-1">
               <i class="fa-solid fa-plus text-[9px]"></i> Chèn tên
             </button>
@@ -1272,7 +1292,7 @@ David: Count me in, it supports three speakers simultaneously!"
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="block text-[10px] text-slate-400 mb-1">Tên nhân vật:</label>
-              <input type="text" value="${spk.name}" onchange="updateSpeakerName(${spk.id}, this.value)" 
+              <input type="text" value="${escapedNameAttr}" onchange="updateSpeakerName(${spk.id}, this.value)" 
                 class="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs text-slate-200 font-medium focus:outline-none focus:border-indigo-500">
             </div>
             <div>
@@ -1282,6 +1302,11 @@ David: Count me in, it supports three speakers simultaneously!"
                 ${voiceOptionsHTML}
               </select>
             </div>
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">Mô tả giọng, độ tuổi, tính cách:</label>
+            <textarea rows="2" onchange="updateSpeakerDescription(${spk.id}, this.value, false)" oninput="updateSpeakerDescription(${spk.id}, this.value, false)" placeholder="VD: Nữ, 22 tuổi, giọng trẻ trung tươi sáng, tính cách năng động, thân thiện..."
+              class="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-y">${escapedDescription}</textarea>
           </div>
         `;
         container.appendChild(card);
@@ -1298,6 +1323,20 @@ David: Count me in, it supports three speakers simultaneously!"
       const spk = speakers.find(s => s.id === id);
       if (spk) spk.voice = val;
       saveStudioState(true);
+    }
+
+    function updateSpeakerDescription(id, val, immediate = false) {
+      const spk = speakers.find(s => s.id === id);
+      if (spk) spk.description = typeof val === 'string' ? val.trim() : '';
+      // Save immediately to ensure description is persisted before AI normalize or TTS generation.
+      saveStudioState(true);
+      void immediate;
+    }
+
+    function insertSpeakerNameById(id) {
+      const spk = speakers.find(s => s.id === id);
+      if (!spk) return;
+      insertSpeakerName(spk.name);
     }
 
     function insertSpeakerName(name) {
@@ -1324,6 +1363,8 @@ David: Count me in, it supports three speakers simultaneously!"
     function clearScript() {
       document.getElementById('scriptInput').value = '';
       document.getElementById('charCount').textContent = '0';
+      lastScriptBeforeNormalization = null;
+      setRevertNormalizationButtonState(false);
       saveStudioState(true);
     }
 
@@ -1351,6 +1392,8 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
         }
       }
       document.getElementById('charCount').textContent = textarea.value.length;
+      lastScriptBeforeNormalization = null;
+      setRevertNormalizationButtonState(false);
       saveStudioState(true);
     }
 
@@ -1380,11 +1423,11 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
         const nonEmptyLeading = leadingLines.map(l => l.trim()).filter(l => l.length > 0);
 
         if (nonEmptyLeading.length > 0) {
-          const allWrapped = nonEmptyLeading.every(l => /^\[.*\]$/.test(l) || /^\(.*\)$/.test(l));
-          if (allWrapped) {
-            directionBlock = nonEmptyLeading.join(' ');
-          } else {
-            directionBlock = `[Voice direction: ${nonEmptyLeading.join(' ')}]`;
+          // Script should focus on dialogue and in-line emotions; voice/age/personality
+          // descriptions belong in speaker profiles. Keep only already-wrapped cues.
+          const wrappedLeading = nonEmptyLeading.filter(l => /^\[.*\]$/.test(l) || /^\(.*\)$/.test(l));
+          if (wrappedLeading.length > 0) {
+            directionBlock = wrappedLeading.join(' ');
           }
         }
         startIndex = firstSpeakerIndex;
@@ -1445,6 +1488,31 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       return result.trim();
     }
 
+    function setRevertNormalizationButtonState(enabled) {
+      const btn = document.getElementById('revertNormalizeBtn');
+      if (!btn) return;
+      btn.disabled = !enabled;
+      btn.classList.toggle('hidden', !enabled);
+    }
+
+    function revertToOriginalScript() {
+      if (typeof lastScriptBeforeNormalization !== 'string') {
+        showToast('Không có kịch bản gốc để quay lại.', 'error');
+        return;
+      }
+
+      const textarea = document.getElementById('scriptInput');
+      if (!textarea) return;
+
+      textarea.value = lastScriptBeforeNormalization;
+      document.getElementById('charCount').textContent = textarea.value.length;
+      lastScriptBeforeNormalization = null;
+      setRevertNormalizationButtonState(false);
+      saveStudioState(true);
+      showToast('Đã quay lại kịch bản gốc.', 'success');
+      updateStatus('Đã khôi phục kịch bản trước lần chuẩn hóa gần nhất.', 'slate');
+    }
+
     function applyScriptFormattingPreview() {
       const textarea = document.getElementById('scriptInput');
       const rawText = textarea.value;
@@ -1454,10 +1522,295 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       }
 
       const formatted = formatDialogueScript(rawText);
+      if (formatted === rawText) {
+        showToast('Kịch bản đã ở định dạng chuẩn.', 'info');
+        return;
+      }
+
       textarea.value = formatted;
       document.getElementById('charCount').textContent = formatted.length;
       saveStudioState(true);
       showToast('Đã chuẩn hóa kịch bản hội thoại!', 'success');
+    }
+
+    function extractTextFromGenerateContentResponse(data) {
+      const parts = data?.candidates?.[0]?.content?.parts;
+      if (!Array.isArray(parts)) return '';
+      return parts
+        .map(part => (typeof part?.text === 'string' ? part.text : ''))
+        .join('')
+        .trim();
+    }
+
+    async function generateNormalizedScriptWithAI(apiKey, prompt) {
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3-flash-preview'];
+      let lastError = null;
+
+      for (let i = 0; i < modelsToTry.length; i++) {
+        const model = modelsToTry[i];
+        if (isDeprecatedModel(model)) continue;
+        updateStatus(`Đang chuẩn hóa kịch bản bằng AI [${model}]...`, 'indigo');
+
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const payload = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2
+          }
+        };
+
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const status = response.status;
+            const message = errData.error?.message || `Lỗi API HTTP ${status}`;
+
+            if (status === 404 || status === 400) {
+              lastError = new Error(`[${model}] ${message}`);
+              updateStatus(`Model [${model}] không khả dụng cho chuẩn hóa AI, đang thử model khác...`, 'amber');
+              continue;
+            }
+
+            if (status === 429 && isDailyQuotaExceededError(status, message)) {
+              lastError = new Error(`[${model}] ${message}`);
+              const noQuotaMsg = isNoFreeTierQuotaError(status, message)
+                ? `Model [${model}] không có quota miễn phí (limit: 0), đang thử model khác...`
+                : `Model [${model}] đã hết quota, đang thử model khác...`;
+              updateStatus(noQuotaMsg, 'amber');
+              continue;
+            }
+
+            if (status === 429 || status === 503) {
+              lastError = new Error(`[${model}] ${message}`);
+              updateStatus(`Model [${model}] tạm thời quá tải (${status}), đang thử model khác...`, 'amber');
+              continue;
+            }
+
+            throw new Error(`[${model}] ${message}`);
+          }
+
+          const data = await response.json();
+          const text = extractTextFromGenerateContentResponse(data);
+          if (!text) {
+            lastError = new Error(`[${model}] Phản hồi AI không chứa nội dung văn bản.`);
+            continue;
+          }
+
+          return { text, model };
+        } catch (err) {
+          if (err && /^(\[.+\]\s)/.test(String(err.message || ''))) {
+            lastError = err;
+          } else {
+            lastError = new Error(`[${model}] ${err?.message || 'Lỗi không xác định'}`);
+          }
+          if (/không khả dụng|quota|quá tải|429|503|404|400/i.test(String(lastError.message || ''))) {
+            continue;
+          }
+          // For transient network/unknown errors, try next model as best effort
+          continue;
+        }
+      }
+
+      throw lastError || new Error('Không thể chuẩn hóa kịch bản bằng AI lúc này.');
+    }
+
+    function buildAINormalizationPrompt(rawScript) {
+      const mode = currentMode;
+      const narratorRule = [
+        '- Nếu ở đầu văn bản gốc có câu dẫn chuyện, bối cảnh hoặc yêu cầu đề bài (ví dụ: "Activity 1: 🎧 (Track 7.11) Listen to a conversation..."), KHÔNG được xóa bỏ; hãy tách thành lượt thoại mở đầu của nhân vật `Narrator:` (ví dụ: `Narrator: [clearly and steadily] Listen to a conversation...`).',
+        '- Tự động lược bỏ emoji/ký hiệu hình ảnh (như `🎧`) và mã/nhãn không cần đọc thành tiếng (như `Activity 1:`, `(Track 7.11)`), đồng thời chuyển ký hiệu phạm vi như `(1–5)`, `(A–E)` thành dạng đọc tự nhiên (`one to five`, `A to E`).'
+      ].join('\n');
+      const speakerNamePriorityRule = [
+        '- Ưu tiên tuyệt đối tên nhân vật trong kịch bản gốc: nếu trong kịch bản gốc đã có tên nhân vật (ví dụ `Emily`, `Tour Guide`, `Leo`, `Mr. Carter`..., ở tiền tố `Tên:` hoặc được nhắc rõ trong đoạn dẫn như "conversation between Emily and a tour guide"), BẮT BUỘC phải giữ nguyên và sử dụng chính xác các tên nhân vật đó trong các lượt thoại; tuyệt đối KHÔNG thay thế bằng tên mặc định đang cấu hình sẵn trong giao diện (`Alex`, `Sarah`, `David`).',
+        '- Chỉ khi kịch bản gốc hoàn toàn không có tên nhân vật (chỉ có lời thoại trống hoặc đại từ chung chung, không xác định được tên), mới được phép lấy tên từ danh sách cấu hình hiện tại hoặc đặt tên phù hợp, nhất quán.'
+      ].join('\n');
+
+      if (mode === 'multi') {
+        const activeSpeakers = speakers.slice(0, speakerCount);
+        const speakerNames = activeSpeakers.map(s => `${s.name} (${s.voice})`).join(', ');
+        const speakerProfiles = activeSpeakers.map(s => {
+          const desc = (s.description || '').trim();
+          return `- ${s.name} (${s.voice}): ${desc || 'Chưa có mô tả giọng/độ tuổi/tính cách.'}`;
+        }).join('\n');
+
+        return [
+          'Bạn là trợ lý chuẩn hóa kịch bản cho ứng dụng Text-to-Speech đa người nói (Gemini TTS).',
+          'Hãy viết lại kịch bản sau thành định dạng rõ ràng, tự nhiên và sẵn sàng để tạo giọng đọc.',
+          '',
+          'Hồ sơ nhân vật đang cấu hình trong giao diện (chỉ để tham chiếu ngữ cảnh/mô tả giọng, KHÔNG đưa vào kịch bản; KHÔNG dùng để thay thế tên nhân vật đã có trong kịch bản gốc):',
+          speakerProfiles,
+          '',
+          'Yêu cầu bắt buộc:',
+          '- Chỉ trả về kịch bản đã chuẩn hóa, không giải thích thêm.',
+          '- Mỗi lượt thoại trên một dòng theo định dạng: `TênNhânVật: Lời thoại`.',
+          speakerNamePriorityRule,
+          '- Tên đang cấu hình hiện tại (chỉ dùng khi kịch bản gốc không có tên): ' + speakerNames + '. Có thể dùng thêm `Narrator` khi cần tách lời dẫn/bối cảnh/hướng dẫn ở đầu.',
+          narratorRule,
+          '- Nếu thiếu tên người nói và không suy ra được từ kịch bản gốc, hãy gán tên nhất quán (ưu tiên tên cấu hình hiện tại hoặc tên phù hợp).',
+          '- Trong kịch bản chỉ giữ tên nhân vật, lời thoại và cảm xúc/trạng thái lúc nói trong ngoặc vuông như `[happy]`, `[whispers]`, `[excited]`, `[sadly]`, `[clearly and steadily]` khi phù hợp (không lạm dụng).',
+          '- Không đưa mô tả giọng, độ tuổi, tính cách hay hồ sơ nhân vật vào kịch bản; các thông tin đó đã có ở hồ sơ nhân vật.',
+          '- Không thêm `[Voice direction: ...]` để mô tả giọng/nhân vật. Chỉ giữ lại các thẻ cảm xúc/hành động lúc nói hoặc bối cảnh ngắn nếu thực sự cần thiết.',
+          '- Giữ nguyên ngôn ngữ và ý nghĩa chính của nội dung gốc; sửa lỗi định dạng, xuống dòng, lặp từ rõ rệt.',
+          '',
+          'Kịch bản gốc:',
+          rawScript
+        ].join('\n');
+      }
+
+      return [
+        'Bạn là trợ lý chuẩn hóa văn bản/kịch bản cho ứng dụng Text-to-Speech (Gemini TTS).',
+        'Hãy viết lại nội dung sau để dễ đọc thành giọng nói tự nhiên, rõ ràng và mạch lạc.',
+        '',
+        'Yêu cầu bắt buộc:',
+        '- Chỉ trả về nội dung đã chuẩn hóa, không giải thích thêm.',
+        '- Giữ nguyên ngôn ngữ và ý nghĩa chính; sửa định dạng, ngắt câu/đoạn, và lỗi trình bày rõ rệt.',
+        speakerNamePriorityRule,
+        narratorRule,
+        '- Nếu nội dung gốc thực sự là hội thoại nhiều người (hoặc có lời dẫn `Narrator` kèm hội thoại), hãy định dạng thành các dòng `TênNhânVật: Lời thoại` (có thể gồm `Narrator` và các nhân vật khác). Nếu không phải hội thoại, không thêm tiền tố người nói.',
+        '- Trong nội dung chỉ giữ lời nói và cảm xúc/hướng dẫn diễn đạt lúc nói trong ngoặc vuông như `[calm]`, `[friendly]`, `[serious]`, `[clearly and steadily]` khi thật sự hữu ích (không lạm dụng).',
+        '- Không đưa mô tả giọng, độ tuổi, tính cách vào nội dung kịch bản; các thông tin đó (nếu có) được cấu hình riêng.',
+        '',
+        'Nội dung gốc:',
+        rawScript
+      ].join('\n');
+    }
+
+    function extractDialogueSpeakerNames(scriptText) {
+      const lines = String(scriptText || '').replace(/\r\n?/g, '\n').split('\n');
+      const speakerLineRe = /^\s*(?!\[|\()([^:\n]+?)\s*:\s*(.*)$/;
+      const names = [];
+      const seen = new Set();
+      for (const line of lines) {
+        const m = line.match(speakerLineRe);
+        if (!m) continue;
+        const name = m[1].trim();
+        const key = name.toLowerCase();
+        if (!name || seen.has(key)) continue;
+        seen.add(key);
+        names.push(name);
+      }
+      return names;
+    }
+
+    function syncSpeakersFromNormalizedScript(normalizedText) {
+      const speakerNames = extractDialogueSpeakerNames(normalizedText);
+      if (speakerNames.length < 2) return false;
+
+      const targetSpeakerCount = Math.min(speakerNames.length, 3);
+      const syncedNames = speakerNames.slice(0, targetSpeakerCount);
+      const narratorDescription = 'Clear, steady exam announcer with a standard accent, reading instructions distinctly';
+      const defaults = getDefaultSpeakers();
+
+      speakers = defaults.map((def, idx) => {
+        const existing = speakers[idx] || {};
+        const base = {
+          id: def.id,
+          name: typeof existing.name === 'string' && existing.name ? existing.name : def.name,
+          voice: typeof existing.voice === 'string' && existing.voice ? existing.voice : def.voice,
+          description: typeof existing.description === 'string' ? existing.description : (def.description || '')
+        };
+
+        if (idx < targetSpeakerCount) {
+          const syncedName = syncedNames[idx] || base.name;
+          base.name = syncedName;
+          if (String(syncedName).trim().toLowerCase() === 'narrator') {
+            base.voice = 'Kore';
+            if (!String(base.description || '').trim()) {
+              base.description = narratorDescription;
+            }
+          }
+        }
+
+        return base;
+      });
+
+      switchMode('multi', { skipSave: true });
+      setSpeakerCount(targetSpeakerCount, { skipSave: true });
+      return true;
+    }
+
+    async function normalizeScriptWithAI() {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        showToast('Vui lòng nhập Google AI Studio API Key trước!', 'error');
+        return;
+      }
+
+      const textarea = document.getElementById('scriptInput');
+      const btn = document.getElementById('aiNormalizeBtn');
+      const rawText = textarea ? textarea.value : '';
+      if (!rawText.trim()) {
+        showToast('Không có nội dung để chuẩn hóa!', 'error');
+        return;
+      }
+
+      const originalBtnHTML = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-violet-400"></i> Đang chuẩn hóa AI...';
+      }
+
+      try {
+        const prompt = buildAINormalizationPrompt(rawText);
+        const result = await generateNormalizedScriptWithAI(apiKey, prompt);
+        let normalizedText = String(result.text || '').trim();
+
+        // Remove common markdown fences if model wraps output
+        normalizedText = normalizedText
+          .replace(/^```(?:text|markdown|md)?\s*/i, '')
+          .replace(/\s*```$/i, '')
+          .trim();
+
+        if (!normalizedText.trim()) {
+          throw new Error('AI trả về nội dung rỗng sau khi chuẩn hóa.');
+        }
+
+        const syncedSpeakersFromScript = syncSpeakersFromNormalizedScript(normalizedText);
+
+        if (currentMode === 'multi') {
+          normalizedText = formatDialogueScript(normalizedText);
+        }
+
+        if (!normalizedText.trim()) {
+          throw new Error('Kịch bản rỗng sau khi chuẩn hóa.');
+        }
+
+        if (!syncedSpeakersFromScript && normalizedText === rawText) {
+          showToast('Kịch bản đã ở dạng phù hợp, không có thay đổi lớn.', 'info');
+          updateStatus('Chuẩn hóa bằng AI hoàn tất (không có thay đổi).', 'slate');
+          saveStudioState(true);
+          return;
+        }
+
+        lastScriptBeforeNormalization = rawText;
+        textarea.value = normalizedText;
+        document.getElementById('charCount').textContent = normalizedText.length;
+        setRevertNormalizationButtonState(true);
+        saveStudioState(true);
+
+        if (syncedSpeakersFromScript) {
+          showToast(`Đã chuẩn hóa bằng AI (${result.model}) và đồng bộ ${speakerCount} nhân vật theo kịch bản.`, 'success');
+          updateStatus(`Chuẩn hóa bằng AI thành công với [${result.model}] và tự động chuyển/cập nhật cấu hình nhân vật theo kịch bản.`, 'emerald');
+        } else {
+          showToast(`Đã chuẩn hóa kịch bản bằng AI (${result.model})`, 'success');
+          updateStatus(`Chuẩn hóa kịch bản bằng AI thành công với [${result.model}].`, 'emerald');
+        }
+      } catch (err) {
+        console.error('AI normalize error:', err);
+        showToast(`Lỗi chuẩn hóa bằng AI: ${err.message}`, 'error');
+        updateStatus(`Lỗi chuẩn hóa bằng AI: ${err.message}`, 'rose');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalBtnHTML || '<i class="fa-solid fa-sparkles text-violet-400"></i> Chuẩn hóa bằng AI';
+        }
+      }
     }
 
     // --- GEMINI API SPEECH GENERATION LOGIC ---
@@ -1526,7 +1879,15 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
             }
           }));
 
-          const instruction = `Generate spoken audio for the following multi-speaker dialogue script formatted as 'SpeakerName: Text':\n\n`;
+          const characterProfiles = activeSpeakers.map(s => {
+            const desc = (s.description || '').trim();
+            return `- ${s.name} (${s.voice}): ${desc || 'Chưa có mô tả giọng/độ tuổi/tính cách.'}`;
+          });
+
+          let instruction = "Generate spoken audio for the following multi-speaker dialogue script formatted as 'SpeakerName: Text'.\n";
+          instruction += "Use these character profiles (voice/age/personality) for performance; do not read the profiles aloud:\n";
+          instruction += characterProfiles.join('\n') + "\n";
+          instruction += "The script contains only speaker lines and in-line emotion/acting cues.\n\n";
 
           payload = {
             contents: [{
