@@ -95,9 +95,9 @@
                 <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
                   Gemini AI Voice Studio
                 </h1>
-                <span class="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full font-mono font-medium">v3.8 Multi-Speaker</span>
+                <span class="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full font-mono font-medium">v4 Code-first TTS</span>
               </div>
-              <p class="text-xs text-slate-400">Tạo giọng đọc Neural & Hội thoại nhiều người (2–3 Speakers)</p>
+              <p class="text-xs text-slate-400">Tạo giọng đọc Neural & Hội thoại có lời dẫn (tối đa 2 nhân vật/request)</p>
             </div>
           </div>
         </div>
@@ -165,7 +165,7 @@
           </button>
           <button id="btnModeMulti" onclick="switchMode('multi')" 
             class="py-2 px-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200">
-            <i class="fa-solid fa-users"></i> Hội thoại (2–3 người)
+            <i class="fa-solid fa-users"></i> Hội thoại (tối đa 2/request)
           </button>
         </div>
       </div>
@@ -210,6 +210,7 @@
           </select>
           <input type="text" id="singleStylePrompt" placeholder="Nhập câu lệnh tùy chỉnh cảm xúc (ví dụ: Read with an enthusiastic tone)..." 
             class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+          <p class="mt-1 text-[10px] text-slate-500">Chỉ dẫn phong cách dùng để điều khiển cách đọc, không phải nội dung đọc thành tiếng.</p>
         </div>
       </div>
 
@@ -219,16 +220,41 @@
           <h2 class="text-xs font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
             <i class="fa-solid fa-people-group text-indigo-400"></i> Nhân vật Hội thoại
           </h2>
-          <!-- Speaker Count Switcher -->
-          <div class="flex items-center bg-slate-950 rounded-lg p-0.5 border border-slate-800">
-            <button id="btnSpeakers2" onclick="setSpeakerCount(2)" class="px-2.5 py-1 text-[11px] font-medium rounded-md bg-indigo-600 text-white transition">2 Người</button>
-            <button id="btnSpeakers3" onclick="setSpeakerCount(3)" class="px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-400 hover:text-slate-200 transition">3 Người</button>
+          <span class="px-2.5 py-1 text-[11px] font-medium rounded-md bg-indigo-600/20 text-indigo-300 border border-indigo-500/30">Tối đa 2 nhân vật/request</span>
+        </div>
+
+        <!-- NARRATOR CONFIGURATION (kept separate from dialogue characters) -->
+        <div id="narratorConfigCard" class="p-3 bg-indigo-950/20 border border-indigo-500/20 rounded-xl space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-bullhorn"></i> Narrator / Lời dẫn
+            </span>
+            <span id="narratorStatus" class="text-[10px] text-slate-500">Tách riêng khỏi nhân vật</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Voice Narrator:</label>
+              <select id="narratorVoiceSelect" onchange="updateNarratorVoice(this.value)" class="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                <!-- Rendered from VOICE_GROUPS during initialization -->
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Phong cách Narrator:</label>
+              <input type="text" id="narratorStylePrompt" oninput="updateNarratorStyle(this.value)" placeholder="clear, steady, slightly slow, classroom exam announcer"
+                class="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+              <p class="mt-1 text-[10px] text-slate-500">Chỉ dùng để điều khiển giọng Narrator; không đọc phần này.</p>
+            </div>
           </div>
         </div>
 
         <!-- Speaker Configuration List Container -->
         <div id="speakersList" class="space-y-3">
           <!-- Rendered dynamically by JavaScript -->
+        </div>
+
+        <div id="speakerValidationWarning" class="hidden p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-[11px] flex gap-2 items-start" role="alert">
+          <i class="fa-solid fa-triangle-exclamation mt-0.5 text-xs text-rose-400"></i>
+          <span id="speakerValidationText"></span>
         </div>
 
         <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-[11px] flex gap-2 items-start">
@@ -291,8 +317,8 @@
               </button>
             </div>
             <div class="flex items-center gap-1.5 flex-wrap justify-end">
-              <button id="aiNormalizeBtn" onclick="normalizeScriptWithAI()" class="px-3 py-1.5 text-[11px] bg-indigo-600/90 hover:bg-indigo-500 text-white rounded-lg border border-indigo-500/60 shadow-sm shadow-indigo-900/30 transition flex items-center gap-1.5 font-medium" title="Chuẩn hóa kịch bản bằng AI (Gemini)">
-                <i class="fa-solid fa-sparkles text-indigo-100"></i> Chuẩn hóa bằng AI
+              <button id="aiNormalizeBtn" onclick="normalizeScriptWithAI()" class="px-3 py-1.5 text-[11px] bg-indigo-600/90 hover:bg-indigo-500 text-white rounded-lg border border-indigo-500/60 shadow-sm shadow-indigo-900/30 transition flex items-center gap-1.5 font-medium" title="Chuẩn hóa bằng code trước; chỉ hỏi AI khi cấu trúc chưa rõ">
+                <i class="fa-solid fa-wand-magic-sparkles text-indigo-100"></i> Chuẩn hóa
               </button>
               <button id="revertNormalizeBtn" onclick="revertToOriginalScript()" disabled class="hidden px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700/80 transition flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="Quay lại kịch bản trước lần chuẩn hóa gần nhất">
                 <i class="fa-solid fa-rotate-left text-slate-400"></i> Quay lại kịch bản gốc
@@ -303,11 +329,11 @@
 
         <!-- Textarea Script Input -->
         <div class="relative flex-1">
-          <textarea id="scriptInput" rows="10" placeholder="Nhập văn bản hoặc kịch bản hội thoại tiếng Anh tại đây...
-Ví dụ (Hội thoại):
-Alex: Hello Sarah, have you tried the new Gemini TTS engine yet?
-Sarah: Yes, Alex! The intonation sounds natural and smooth.
-David: Count me in, it supports three speakers simultaneously!" 
+          <textarea id="scriptInput" rows="10" placeholder="Dán văn bản thô hoặc kịch bản hội thoại tiếng Anh tại đây...
+Ví dụ:
+Exercise 1: 🎧 (Track 7.22) Listen to the conversation.
+Mai: Mom, do you remember the wildlife documentary we watched last night?
+Mom: Of course! I loved the part about endangered animals."
             class="w-full h-full min-h-[220px] p-4 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 font-mono text-xs leading-relaxed focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition resize-y"></textarea>
           
           <div class="absolute bottom-3 right-4 text-[11px] text-slate-500 pointer-events-none bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800">
@@ -448,36 +474,53 @@ David: Count me in, it supports three speakers simultaneously!"
     }
 
     const FALLBACK_MODELS = [
+      "gemini-3.8-flash-lite-tts",
+      "gemini-3.8-flash-tts",
+      "gemini-3.1-flash-tts-preview",
       "gemini-2.5-flash-preview-tts",
-      "gemini-2.5-flash-tts",
-      "gemini-3.8-flash"
+      "gemini-2.5-flash-tts"
     ];
     const DEFAULT_MODEL = FALLBACK_MODELS[0];
     const DEPRECATED_MODEL_PATTERNS = [
       /^gemini-2\.0-/,
       /^gemini-1\.5-/
     ];
+    const KNOWN_NON_TTS_MODEL_PATTERNS = [
+      /^gemini-3\.8-flash(?:-latest)?$/i
+    ];
 
-    function isProTtsModel(modelName) {
-      if (!modelName) return false;
-      const name = String(modelName).toLowerCase();
-      return name.includes('-pro-tts') || name.includes('-pro-preview-tts');
+    function isKnownNonTtsModel(modelName) {
+      return KNOWN_NON_TTS_MODEL_PATTERNS.some(pattern => pattern.test(String(modelName || '')));
     }
 
-    function isFreeTierUnsupportedTtsModel(modelName) {
-      return isProTtsModel(modelName);
+    function isLikelyTtsModel(modelName) {
+      return String(modelName || '').toLowerCase().includes('tts');
     }
 
     function shouldForceDefaultTtsModel(modelName) {
-      return isDeprecatedModel(modelName) || isFreeTierUnsupportedTtsModel(modelName);
+      return isDeprecatedModel(modelName) || isKnownNonTtsModel(modelName);
     }
 
+    const LEGACY_NARRATOR_STYLE = 'clear, steady, classroom exam announcer';
+    const LISTENING_PACE_INSTRUCTION = 'For English listening practice, speak slightly slowly and clearly. Articulate every word and use natural pauses between sentences. Do not rush.';
+    const DEFAULT_NARRATOR_STYLE = 'clear, steady, slightly slow, classroom exam announcer';
+    const DEFAULT_SINGLE_STYLE_PROMPT = LISTENING_PACE_INSTRUCTION;
+    const DEFAULT_DIALOGUE_STYLE = 'natural, clear, slightly slower dialogue delivery for English listening practice';
+    const AUDIO_TARGET_SAMPLE_RATE = 24000;
+    const AUDIO_GAP_MS = 750;
+    const AUDIO_FADE_MS = 8;
+    const AUDIO_SILENCE_THRESHOLD = 64;
+    const REQUEST_TIMEOUT_MS = 90000;
+
     let currentMode = 'single'; // 'single' or 'multi'
-    let speakerCount = 2; // 2 or 3
+    let speakerCount = 2; // Kept for soft migration; parsed character names are authoritative.
+    let narratorConfig = {
+      voice: 'Kore',
+      style: DEFAULT_NARRATOR_STYLE
+    };
     let speakers = [
       { id: 1, name: 'Alex', voice: 'Puck', description: '' },
-      { id: 2, name: 'Sarah', voice: 'Aoede', description: '' },
-      { id: 3, name: 'David', voice: 'Fenrir', description: '' }
+      { id: 2, name: 'Sarah', voice: 'Aoede', description: '' }
     ];
 
     let currentAudioBlob = null;
@@ -490,10 +533,14 @@ David: Count me in, it supports three speakers simultaneously!"
     let audioSource = null;
     let animFrameId = null;
     let generationCancelled = false;
+    let generationSequence = 0;
+    let activeGenerationId = 0;
+    let generationAbortController = null;
     let lastScriptBeforeNormalization = null;
 
     // Persistent state (localStorage + IndexedDB)
     const STUDIO_STATE_KEY = 'tts_studio_state_v1';
+    const STUDIO_STATE_SCHEMA_VERSION = 2;
     const HISTORY_DB_NAME = 'GeminiVoiceStudioDB';
     const HISTORY_DB_VERSION = 1;
     const HISTORY_STORE_NAME = 'history';
@@ -507,19 +554,28 @@ David: Count me in, it supports three speakers simultaneously!"
     function getDefaultSpeakers() {
       return [
         { id: 1, name: 'Alex', voice: 'Puck', description: '' },
-        { id: 2, name: 'Sarah', voice: 'Aoede', description: '' },
-        { id: 3, name: 'David', voice: 'Fenrir', description: '' }
+        { id: 2, name: 'Sarah', voice: 'Aoede', description: '' }
       ];
     }
 
     function getDefaultStudioState() {
       return {
+        schemaVersion: STUDIO_STATE_SCHEMA_VERSION,
         mode: 'single',
         speakerCount: 2,
         singleVoice: 'Puck',
-        singleStylePrompt: '',
-        speakers: getDefaultSpeakers().map(s => ({ name: s.name, voice: s.voice, description: s.description })),
+        singleStylePrompt: DEFAULT_SINGLE_STYLE_PROMPT,
+        narrator: {
+          voice: 'Kore',
+          style: DEFAULT_NARRATOR_STYLE
+        },
+        characters: getDefaultSpeakers().map(s => ({
+          name: s.name,
+          voice: s.voice,
+          style: s.description || ''
+        })),
         scriptText: '',
+        lastScriptBeforeNormalization: null,
         selectedModel: DEFAULT_MODEL,
         customModel: '',
         autoFallback: true,
@@ -527,26 +583,73 @@ David: Count me in, it supports three speakers simultaneously!"
       };
     }
 
+    function normalizeCharacterRecord(src, fallback, idx) {
+      const source = src && typeof src === 'object' ? src : {};
+      const name = typeof source.name === 'string' && source.name.trim()
+        ? source.name.trim()
+        : fallback.name;
+      const voice = typeof source.voice === 'string' && source.voice.trim()
+        ? source.voice.trim()
+        : fallback.voice;
+      const styleValue = typeof source.style === 'string'
+        ? source.style
+        : (typeof source.description === 'string' ? source.description : '');
+      return {
+        id: Number.isFinite(Number(source.id)) ? Number(source.id) : (idx + 1),
+        name,
+        voice,
+        style: styleValue.trim(),
+        // Keep the old property in memory so old inline handlers and history/state migrations remain safe.
+        description: styleValue.trim()
+      };
+    }
+
+    function normalizeNarratorConfig(rawNarrator, legacyCharacters) {
+      const source = rawNarrator && typeof rawNarrator === 'object' ? rawNarrator : {};
+      const legacyNarrator = (legacyCharacters || []).find(item => String(item?.name || '').trim().toLowerCase() === 'narrator');
+      const voice = typeof source.voice === 'string' && source.voice.trim()
+        ? source.voice.trim()
+        : (legacyNarrator?.voice || 'Kore');
+      const styleSource = typeof source.style === 'string'
+        ? source.style
+        : (typeof source.stylePrompt === 'string' ? source.stylePrompt : (legacyNarrator?.style || legacyNarrator?.description || DEFAULT_NARRATOR_STYLE));
+      const normalizedStyle = styleSource.trim();
+      return {
+        voice,
+        style: !normalizedStyle || normalizedStyle === LEGACY_NARRATOR_STYLE
+          ? DEFAULT_NARRATOR_STYLE
+          : normalizedStyle
+      };
+    }
+
     function normalizeStudioState(rawState) {
       const defaults = getDefaultStudioState();
-      const state = Object.assign({}, defaults, rawState || {});
+      const raw = rawState && typeof rawState === 'object' ? rawState : {};
+      const state = Object.assign({}, defaults, raw);
 
       state.mode = state.mode === 'multi' ? 'multi' : 'single';
-      state.speakerCount = state.speakerCount === 3 ? 3 : 2;
+      const legacyCharacters = Array.isArray(raw.speakers) ? raw.speakers : [];
+      const hasCharacters = Array.isArray(raw.characters) || Array.isArray(raw.speakers);
+      const rawCharacters = Array.isArray(raw.characters) ? raw.characters : legacyCharacters;
+      const characterSources = rawCharacters.filter(item => speakerNameKey(item?.name) !== 'narrator');
+      // The old 3-speaker preference is migrated to the supported two-speaker UI.
+      // Character records themselves are retained so old state is not discarded.
+      state.speakerCount = 2;
       state.singleVoice = typeof state.singleVoice === 'string' && state.singleVoice ? state.singleVoice : defaults.singleVoice;
       state.singleStylePrompt = typeof state.singleStylePrompt === 'string' ? state.singleStylePrompt : '';
 
-      const rawSpeakers = Array.isArray(state.speakers) ? state.speakers : [];
-      state.speakers = defaults.speakers.map((def, idx) => {
-        const src = rawSpeakers[idx] || {};
-        return {
-          name: typeof src.name === 'string' && src.name.trim() ? src.name.trim() : def.name,
-          voice: typeof src.voice === 'string' && src.voice ? src.voice : def.voice,
-          description: typeof src.description === 'string' ? src.description.trim() : (def.description || '')
-        };
-      });
+      const sourceCharacters = hasCharacters ? characterSources : defaults.characters;
+      state.characters = sourceCharacters.map((src, idx) => normalizeCharacterRecord(
+        src,
+        defaults.characters[idx] || { name: `Speaker ${idx + 1}`, voice: VOICE_GROUPS[idx % 2 === 0 ? 1 : 0].voices[0].id },
+        idx
+      ));
+      state.narrator = normalizeNarratorConfig(raw.narrator, rawCharacters);
 
       state.scriptText = typeof state.scriptText === 'string' ? state.scriptText : '';
+      state.lastScriptBeforeNormalization = typeof state.lastScriptBeforeNormalization === 'string'
+        ? state.lastScriptBeforeNormalization
+        : null;
       let selectedModel = typeof state.selectedModel === 'string' && state.selectedModel ? state.selectedModel : DEFAULT_MODEL;
       let customModel = typeof state.customModel === 'string' ? state.customModel.trim() : '';
       if (selectedModel !== '__CUSTOM__' && shouldForceDefaultTtsModel(selectedModel)) {
@@ -563,6 +666,8 @@ David: Count me in, it supports three speakers simultaneously!"
       const allowedSpeeds = [0.75, 0.85, 1.0, 1.15, 1.25, 1.5];
       const speedNum = Number(state.playbackSpeed);
       state.playbackSpeed = allowedSpeeds.includes(speedNum) ? speedNum : 1.0;
+      state.schemaVersion = STUDIO_STATE_SCHEMA_VERSION;
+      delete state.speakers;
 
       return state;
     }
@@ -587,12 +692,22 @@ David: Count me in, it supports three speakers simultaneously!"
         speakerCount,
         singleVoice: document.getElementById('singleVoiceSelect')?.value || 'Puck',
         singleStylePrompt: document.getElementById('singleStylePrompt')?.value || '',
-        speakers: speakers.map(s => ({ name: s.name, voice: s.voice, description: s.description || '' })),
+        narrator: {
+          voice: narratorConfig.voice,
+          style: narratorConfig.style
+        },
+        characters: speakers.map(s => ({
+          name: s.name,
+          voice: s.voice,
+          style: s.style || s.description || ''
+        })),
         scriptText: document.getElementById('scriptInput')?.value || '',
+        lastScriptBeforeNormalization,
         selectedModel: selectedModelValue || DEFAULT_MODEL,
         customModel: customModelInput?.value || '',
         autoFallback: document.getElementById('autoFallbackToggle')?.checked !== false,
-        playbackSpeed
+        playbackSpeed,
+        schemaVersion: STUDIO_STATE_SCHEMA_VERSION
       });
     }
 
@@ -646,17 +761,37 @@ David: Count me in, it supports three speakers simultaneously!"
       try {
         currentMode = safeState.mode;
         speakerCount = safeState.speakerCount;
-        speakers = getDefaultSpeakers().map((def, idx) => ({
-          id: def.id,
-          name: safeState.speakers[idx]?.name || def.name,
-          voice: safeState.speakers[idx]?.voice || def.voice,
-          description: safeState.speakers[idx]?.description || ''
-        }));
+        narratorConfig = {
+          voice: safeState.narrator.voice,
+          style: safeState.narrator.style
+        };
+        const usedCharacterIds = new Set();
+        speakers = safeState.characters.map((character, idx) => {
+          let id = Number.isFinite(Number(character.id)) ? Number(character.id) : idx + 1;
+          while (usedCharacterIds.has(id)) id += 1;
+          usedCharacterIds.add(id);
+          const style = character.style || character.description || '';
+          return {
+            id,
+            name: character.name,
+            voice: character.voice,
+            style,
+            description: style
+          };
+        });
+        lastScriptBeforeNormalization = safeState.lastScriptBeforeNormalization;
 
         const singleVoiceSelect = document.getElementById('singleVoiceSelect');
         if (singleVoiceSelect) singleVoiceSelect.value = safeState.singleVoice;
         const singleStylePrompt = document.getElementById('singleStylePrompt');
         if (singleStylePrompt) singleStylePrompt.value = safeState.singleStylePrompt;
+        const narratorVoiceSelect = document.getElementById('narratorVoiceSelect');
+        if (narratorVoiceSelect) {
+          narratorVoiceSelect.innerHTML = buildVoiceOptionsHTML(narratorConfig.voice);
+          narratorVoiceSelect.value = narratorConfig.voice;
+        }
+        const narratorStylePrompt = document.getElementById('narratorStylePrompt');
+        if (narratorStylePrompt) narratorStylePrompt.value = narratorConfig.style;
 
         const scriptInput = document.getElementById('scriptInput');
         if (scriptInput) {
@@ -704,6 +839,11 @@ David: Count me in, it supports three speakers simultaneously!"
         // Reflect mode/speaker UI without triggering state save loops
         setSpeakerCount(speakerCount, { skipSave: true });
         switchMode(currentMode, { skipSave: true });
+        if (currentMode === 'multi' && safeState.scriptText.trim()) {
+          const parsedRestoredScript = parseNormalizedScript(safeState.scriptText);
+          if (parsedRestoredScript.characterNames.length) syncCharactersFromParsed(parsedRestoredScript);
+        }
+        setRevertNormalizationButtonState(typeof lastScriptBeforeNormalization === 'string' && lastScriptBeforeNormalization.length > 0);
       } finally {
         suppressStateSave = false;
       }
@@ -932,7 +1072,7 @@ David: Count me in, it supports three speakers simultaneously!"
         document.getElementById('apiKeyInput').value = savedKey;
       }
 
-      // Migrate deprecated/legacy/pro (no free quota) selected model key and restore full studio state
+      // Migrate invalid/non-TTS selected model key and restore full studio state
       const legacyStoredModel = localStorage.getItem('selectedModel') || '';
       if (legacyStoredModel) {
         let migratedLegacy = legacyStoredModel;
@@ -955,6 +1095,7 @@ David: Count me in, it supports three speakers simultaneously!"
       const scriptArea = document.getElementById('scriptInput');
       scriptArea.addEventListener('input', () => {
         document.getElementById('charCount').textContent = scriptArea.value.length;
+        updateSpeakerValidationUI();
         saveStudioState(false);
       });
 
@@ -962,6 +1103,8 @@ David: Count me in, it supports three speakers simultaneously!"
       document.getElementById('singleVoiceSelect')?.addEventListener('change', () => saveStudioState(true));
       document.getElementById('singleStylePrompt')?.addEventListener('input', () => saveStudioState(false));
       document.getElementById('singlePresetStyle')?.addEventListener('change', () => saveStudioState(true));
+      document.getElementById('narratorVoiceSelect')?.addEventListener('change', event => updateNarratorVoice(event.target.value));
+      document.getElementById('narratorStylePrompt')?.addEventListener('input', event => updateNarratorStyle(event.target.value));
       document.getElementById('autoFallbackToggle')?.addEventListener('change', () => saveStudioState(true));
       document.getElementById('customModelInput')?.addEventListener('change', () => saveStudioState(true));
       document.getElementById('customModelInput')?.addEventListener('blur', () => saveStudioState(true));
@@ -978,6 +1121,7 @@ David: Count me in, it supports three speakers simultaneously!"
       }
 
       // Save normalized/restored state once
+      updateSpeakerValidationUI();
       saveStudioState(true);
     });
 
@@ -1032,6 +1176,7 @@ David: Count me in, it supports three speakers simultaneously!"
 
     function cancelGeneration() {
       generationCancelled = true;
+      if (generationAbortController) generationAbortController.abort();
       const cancelBtn = document.getElementById('cancelGenerateBtn');
       if (cancelBtn) {
         cancelBtn.disabled = true;
@@ -1040,12 +1185,12 @@ David: Count me in, it supports three speakers simultaneously!"
       updateStatus('Đang hủy yêu cầu tạo giọng đọc...', 'amber');
     }
 
-    async function waitForRetryCountdown(model, attempt, maxAttempts, delayMs) {
+    async function waitForRetryCountdown(model, attempt, maxAttempts, delayMs, generationId = activeGenerationId) {
       let remainingSec = Math.ceil(delayMs / 1000);
       const genBtn = document.getElementById('generateBtn');
 
       while (remainingSec > 0) {
-        if (generationCancelled) throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
+        assertGenerationActive(generationId);
         const msg = `Server đang quá tải, tự động thử lại lần ${attempt}/${maxAttempts} sau ${remainingSec}s...`;
         updateStatus(`[${model}] ${msg}`, 'amber');
         if (genBtn) {
@@ -1055,7 +1200,7 @@ David: Count me in, it supports three speakers simultaneously!"
         remainingSec -= 1;
       }
 
-      if (generationCancelled) throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
+      assertGenerationActive(generationId);
       if (genBtn) {
         genBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sm"></i> <span>Đang thử lại [${model}]...</span>`;
       }
@@ -1097,11 +1242,11 @@ David: Count me in, it supports three speakers simultaneously!"
 
         let currentSelection = select.value || localStorage.getItem('selectedModel') || DEFAULT_MODEL;
         const customSelected = currentSelection === '__CUSTOM__';
-        if (!customSelected && (isDeprecatedModel(currentSelection) || isProTtsModel(currentSelection))) currentSelection = DEFAULT_MODEL;
+        if (!customSelected && shouldForceDefaultTtsModel(currentSelection)) currentSelection = DEFAULT_MODEL;
 
         const discoveredModels = (data.models || [])
           .map(m => m.name.replace('models/', ''))
-          .filter(name => !isDeprecatedModel(name) && !isProTtsModel(name));
+          .filter(name => isLikelyTtsModel(name) && !shouldForceDefaultTtsModel(name));
 
         const uniqueModels = [];
         const seen = new Set();
@@ -1128,7 +1273,7 @@ David: Count me in, it supports three speakers simultaneously!"
         others.sort(sortByName);
 
         const orderedModels = [...new Set([...FALLBACK_MODELS, ...prioritized, ...others])]
-          .filter(name => !isDeprecatedModel(name) && !isProTtsModel(name));
+          .filter(name => isLikelyTtsModel(name) && !shouldForceDefaultTtsModel(name));
 
         select.innerHTML = '';
 
@@ -1181,7 +1326,7 @@ David: Count me in, it supports three speakers simultaneously!"
           select.value = '__CUSTOM__';
           customContainer?.classList.remove('hidden');
         } else {
-          const fallbackSelection = (isDeprecatedModel(currentSelection) || isProTtsModel(currentSelection))
+          const fallbackSelection = shouldForceDefaultTtsModel(currentSelection)
             ? DEFAULT_MODEL
             : (currentSelection || DEFAULT_MODEL);
           populateDefaultModelOptions(select, fallbackSelection);
@@ -1203,7 +1348,7 @@ David: Count me in, it supports three speakers simultaneously!"
         document.getElementById('customModelInput').focus();
       } else {
         container.classList.add('hidden');
-        if (!isDeprecatedModel(val) && !isProTtsModel(val)) {
+        if (!shouldForceDefaultTtsModel(val)) {
           localStorage.setItem('selectedModel', val);
         } else {
           localStorage.setItem('selectedModel', DEFAULT_MODEL);
@@ -1218,13 +1363,15 @@ David: Count me in, it supports three speakers simultaneously!"
         showToast('Vui lòng nhập mã model hợp lệ!', 'error');
         return;
       }
+      if (shouldForceDefaultTtsModel(val)) {
+        showToast('Model này không được dùng cho TTS hoặc không còn khả dụng. Vui lòng chọn model TTS khác.', 'error');
+        return;
+      }
       const select = document.getElementById('modelSelect');
       document.getElementById('customModelInput').value = val;
       select.value = '__CUSTOM__';
       document.getElementById('customModelContainer').classList.remove('hidden');
-      if (!isDeprecatedModel(val)) {
-        localStorage.setItem('selectedModel', val);
-      }
+      localStorage.setItem('selectedModel', val);
       saveStudioState(true);
       showToast(`Đã áp dụng model tùy chỉnh: ${val}`, 'success');
     }
@@ -1253,22 +1400,29 @@ David: Count me in, it supports three speakers simultaneously!"
     }
 
     function setSpeakerCount(count, options = {}) {
-      speakerCount = count === 3 ? 3 : 2;
-      document.getElementById('btnSpeakers2').className = speakerCount === 2 
-        ? "px-2.5 py-1 text-[11px] font-medium rounded-md bg-indigo-600 text-white transition"
-        : "px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-400 hover:text-slate-200 transition";
-      document.getElementById('btnSpeakers3').className = speakerCount === 3 
-        ? "px-2.5 py-1 text-[11px] font-medium rounded-md bg-indigo-600 text-white transition"
-        : "px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-400 hover:text-slate-200 transition";
+      speakerCount = 2;
       renderSpeakerCards();
+      updateSpeakerValidationUI();
       if (!options.skipSave) saveStudioState(true);
+      void count;
     }
 
     function renderSpeakerCards() {
       const container = document.getElementById('speakersList');
+      if (!container) return;
       container.innerHTML = '';
 
-      const listToRender = speakers.slice(0, speakerCount);
+      const parsedCharacterNames = parseNormalizedScript(document.getElementById('scriptInput')?.value || '').characterNames;
+      const visibleCharacterCount = parsedCharacterNames.length ? parsedCharacterNames.length : 2;
+      const listToRender = speakers.slice(0, visibleCharacterCount);
+
+      if (!listToRender.length) {
+        const empty = document.createElement('div');
+        empty.className = 'p-3 bg-slate-950/70 border border-dashed border-slate-700 rounded-xl text-[11px] text-slate-500';
+        empty.textContent = 'Chưa phát hiện nhân vật hội thoại. Hãy chuẩn hóa script hoặc nhập theo dạng Tên: Lời thoại.';
+        container.appendChild(empty);
+        return;
+      }
 
       listToRender.forEach((spk, idx) => {
         const card = document.createElement('div');
@@ -1277,11 +1431,11 @@ David: Count me in, it supports three speakers simultaneously!"
         const voiceOptionsHTML = buildVoiceOptionsHTML(spk.voice);
 
         const escapedNameAttr = escapeHtml(spk.name || '');
-        const escapedDescription = escapeHtml(spk.description || '');
+        const escapedDescription = escapeHtml(spk.style || spk.description || '');
 
         card.innerHTML = `
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-indigo-400 flex items-center gap-1">
+              <span class="text-xs font-semibold text-indigo-400 flex items-center gap-1">
               <i class="fa-solid fa-user-gear"></i> Nhân vật ${idx + 1}
             </span>
             <button onclick="insertSpeakerNameById(${spk.id})" 
@@ -1304,9 +1458,10 @@ David: Count me in, it supports three speakers simultaneously!"
             </div>
           </div>
           <div>
-            <label class="block text-[10px] text-slate-400 mb-1">Mô tả giọng, độ tuổi, tính cách:</label>
+              <label class="block text-[10px] text-slate-400 mb-1">Phong cách / mô tả giọng:</label>
             <textarea rows="2" onchange="updateSpeakerDescription(${spk.id}, this.value, false)" oninput="updateSpeakerDescription(${spk.id}, this.value, false)" placeholder="VD: Nữ, 22 tuổi, giọng trẻ trung tươi sáng, tính cách năng động, thân thiện..."
               class="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-y">${escapedDescription}</textarea>
+            <p class="mt-1 text-[10px] text-slate-500">Mô tả chỉ điều khiển cách diễn, không được đọc thành tiếng.</p>
           </div>
         `;
         container.appendChild(card);
@@ -1316,6 +1471,7 @@ David: Count me in, it supports three speakers simultaneously!"
     function updateSpeakerName(id, val) {
       const spk = speakers.find(s => s.id === id);
       if (spk) spk.name = val.trim() || `Speaker ${id}`;
+      updateSpeakerValidationUI();
       saveStudioState(true);
     }
 
@@ -1327,10 +1483,23 @@ David: Count me in, it supports three speakers simultaneously!"
 
     function updateSpeakerDescription(id, val, immediate = false) {
       const spk = speakers.find(s => s.id === id);
-      if (spk) spk.description = typeof val === 'string' ? val.trim() : '';
+      if (spk) {
+        spk.style = typeof val === 'string' ? val.trim() : '';
+        spk.description = spk.style;
+      }
       // Save immediately to ensure description is persisted before AI normalize or TTS generation.
       saveStudioState(true);
       void immediate;
+    }
+
+    function updateNarratorVoice(val) {
+      narratorConfig.voice = typeof val === 'string' && val.trim() ? val.trim() : 'Kore';
+      saveStudioState(true);
+    }
+
+    function updateNarratorStyle(val) {
+      narratorConfig.style = typeof val === 'string' && val.trim() ? val.trim() : DEFAULT_NARRATOR_STYLE;
+      saveStudioState(false);
     }
 
     function insertSpeakerNameById(id) {
@@ -1363,6 +1532,7 @@ David: Count me in, it supports three speakers simultaneously!"
     function clearScript() {
       document.getElementById('scriptInput').value = '';
       document.getElementById('charCount').textContent = '0';
+      updateSpeakerValidationUI(parseNormalizedScript(''));
       lastScriptBeforeNormalization = null;
       setRevertNormalizationButtonState(false);
       saveStudioState(true);
@@ -1378,114 +1548,320 @@ David: Count me in, it supports three speakers simultaneously!"
         textarea.value = `Welcome to Gemini AI Voice Studio! Today, we are exploring how artificial intelligence is transforming neural text-to-speech generation. With high-fidelity speech synthesis, learning languages and creating audio content has never been more seamless.`;
       } else {
         switchMode('multi');
-        if (speakerCount === 2) {
-          textarea.value = `Alex: Hey Sarah, have you tried the new multi-speaker Gemini voice generator yet?
+        textarea.value = `Alex: Hey Sarah, have you tried the new multi-speaker Gemini voice generator yet?
 Sarah: Yes, Alex! The intonation between speakers sounds smooth and natural.
 Alex: I am really impressed with how fast it converts raw text into WAV format.
 Sarah: Same here! It is going to be amazing for listening practice.`;
-        } else {
-          textarea.value = `Alex: Welcome back to our technology podcast!
-Sarah: Thanks Alex! Today we are testing multi-speaker speech generation in Gemini.
-David: Count me in! Having three natural voices in one single audio stream is incredible.
-Alex: Exactly, David! The API switches seamlessly between each character.
-Sarah: Wow, this is going to revolutionize English listening practice!`;
-        }
       }
       document.getElementById('charCount').textContent = textarea.value.length;
+      if (type === 'multi') syncCharactersFromParsed(parseNormalizedScript(textarea.value));
       lastScriptBeforeNormalization = null;
       setRevertNormalizationButtonState(false);
       saveStudioState(true);
     }
 
     // --- DIALOGUE SCRIPT PREPROCESSING ---
-    function formatDialogueScript(rawText) {
-      if (!rawText) return '';
+    const NARRATOR_LEADING_KEYWORDS = /^(exercise|activity|track|listen|complete|instructions?|directions?|task|part|section)\b/i;
+    const RESERVED_SPEAKER_NAMES = new Set([
+      'exercise', 'activity', 'track', 'listen', 'complete', 'instruction', 'instructions',
+      'direction', 'directions', 'task', 'part', 'section'
+    ]);
 
-      let text = rawText.replace(/\r\n?/g, '\n');
-      text = text.replace(/<([^<>]+)>/g, '[$1]');
+    function normalizeLineBreaks(text) {
+      return String(text || '').replace(/\r\n?/g, '\n').replace(/<([^<>]+)>/g, '[$1]');
+    }
 
-      const lines = text.split('\n');
-      const speakerLineRe = /^\s*(?!\[|\()([^:\n]+?)\s*:\s*(.*)$/;
+    function stripDecorativeSymbols(text) {
+      let value = String(text || '');
+      // Keep punctuation and content, but remove common visual bullets/emoji that should not be spoken.
+      value = value.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '');
+      value = value.replace(/^\s*[-*•●▪◦◆◇►▶→]+\s*/u, '');
+      return value.replace(/[ \t]+/g, ' ').trim();
+    }
 
-      let firstSpeakerIndex = -1;
-      for (let i = 0; i < lines.length; i++) {
-        if (speakerLineRe.test(lines[i])) {
-          firstSpeakerIndex = i;
-          break;
-        }
-      }
+    function normalizeNarratorLine(text) {
+      let value = stripDecorativeSymbols(text);
+      // Exercise/Activity labels are layout metadata; preserve the actual instruction after the colon.
+      value = value.replace(/^\s*(?:Exercise|Activity)\s+\d+[\s.)-]*:?\s*/i, '');
+      value = value.replace(/\(\s*((?:Track|Audio)\s+[\d.\- ]+)\s*\)/gi, '$1');
+      return value.replace(/\s+/g, ' ').trim();
+    }
 
-      let directionBlock = null;
-      let startIndex = 0;
+    function isReservedSpeakerLabel(name) {
+      const value = String(name || '').trim();
+      if (!value) return true;
+      const lower = value.toLowerCase();
+      if (RESERVED_SPEAKER_NAMES.has(lower)) return true;
+      return NARRATOR_LEADING_KEYWORDS.test(value) || /^(?:exercise|activity|track)\s+\d/i.test(value);
+    }
 
-      if (firstSpeakerIndex > 0) {
-        const leadingLines = lines.slice(0, firstSpeakerIndex);
-        const nonEmptyLeading = leadingLines.map(l => l.trim()).filter(l => l.length > 0);
+    function speakerNameKey(name) {
+      return String(name || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+    }
 
-        if (nonEmptyLeading.length > 0) {
-          // Script should focus on dialogue and in-line emotions; voice/age/personality
-          // descriptions belong in speaker profiles. Keep only already-wrapped cues.
-          const wrappedLeading = nonEmptyLeading.filter(l => /^\[.*\]$/.test(l) || /^\(.*\)$/.test(l));
-          if (wrappedLeading.length > 0) {
-            directionBlock = wrappedLeading.join(' ');
-          }
-        }
-        startIndex = firstSpeakerIndex;
-      } else if (firstSpeakerIndex === 0) {
-        startIndex = 0;
-      } else {
-        return text.trim();
-      }
+    function parseSpeakerLine(line) {
+      const value = stripDecorativeSymbols(line);
+      const match = value.match(/^\s*([^:\n]{1,80})\s*:\s*(.*)$/);
+      if (!match) return { isSpeakerLine: false, value };
 
+      const rawName = match[1].trim();
+      const content = stripDecorativeSymbols(match[2]);
+      const invalidReasons = [];
+      if (!rawName) invalidReasons.push('tên trống');
+      if (/^(?:https?|ftp):\/\//i.test(value) || /@/.test(rawName)) invalidReasons.push('URL/email');
+      if (/^\d{1,2}(?:[.:]\d{2})?$/.test(rawName) || /^(?:at|time)\s+\d{1,2}(?::\d{2})?$/i.test(rawName)) invalidReasons.push('số hoặc thời gian');
+      if (isReservedSpeakerLabel(rawName)) invalidReasons.push('nhãn hướng dẫn');
+      if (/[^\p{L}\p{N} ._'’\-()]/u.test(rawName)) invalidReasons.push('ký hiệu không hợp lệ');
+      if (rawName.length > 50) invalidReasons.push('tên quá dài');
+
+      return {
+        isSpeakerLine: invalidReasons.length === 0,
+        name: rawName.replace(/\s+/g, ' '),
+        key: speakerNameKey(rawName),
+        content,
+        invalidReasons,
+        value
+      };
+    }
+
+    function parseNormalizedScript(rawText) {
+      const source = normalizeLineBreaks(rawText);
+      const lines = source.split('\n');
+      const narratorParts = [];
       const turns = [];
+      const characterNames = [];
+      const characterKeys = new Set();
+      const duplicateNames = [];
+      const invalidSpeakerLines = [];
       let currentSpeaker = null;
       let currentParts = [];
+      let sawDialogue = false;
+      let narratorBlocksAfterDialogue = 0;
+
+      const addCharacter = (name, key) => {
+        if (!characterKeys.has(key)) {
+          characterKeys.add(key);
+          characterNames.push(name);
+        } else if (!characterNames.some(existing => existing === name)) {
+          duplicateNames.push(name);
+        }
+      };
 
       const flushTurn = () => {
-        if (currentSpeaker) {
-          const content = currentParts.join(' ').replace(/\s+/g, ' ').trim();
-          turns.push(content ? `${currentSpeaker}: ${content}` : `${currentSpeaker}:`);
+        if (!currentSpeaker) return;
+        const text = currentParts.join(' ').replace(/\s+/g, ' ').trim();
+        if (text) {
+          turns.push({ speaker: currentSpeaker, text, style: '' });
+        } else {
+          invalidSpeakerLines.push(`${currentSpeaker}:`);
         }
         currentSpeaker = null;
         currentParts = [];
       };
 
-      for (let i = startIndex; i < lines.length; i++) {
-        const trimmed = lines[i].trim();
+      for (const rawLine of lines) {
+        const trimmed = rawLine.trim();
         if (!trimmed) continue;
 
-        const m = trimmed.match(speakerLineRe);
-        if (m) {
-          const name = m[1].trim();
-          const content = m[2].trim();
-
-          if (currentSpeaker && name.toLowerCase() === currentSpeaker.toLowerCase()) {
-            if (content) currentParts.push(content);
-          } else {
+        const parsedLine = parseSpeakerLine(trimmed);
+        if (parsedLine.isSpeakerLine) {
+          const name = parsedLine.name;
+          const key = parsedLine.key;
+          if (key === 'narrator') {
             flushTurn();
-            currentSpeaker = name;
-            currentParts = content ? [content] : [];
+            if (parsedLine.content) {
+              narratorParts.push(normalizeNarratorLine(parsedLine.content));
+              if (sawDialogue) narratorBlocksAfterDialogue += 1;
+            }
+            continue;
           }
+
+          if (currentSpeaker && speakerNameKey(currentSpeaker) === key) {
+            if (parsedLine.content) currentParts.push(parsedLine.content);
+            continue;
+          }
+
+          flushTurn();
+          currentSpeaker = name;
+          currentParts = parsedLine.content ? [parsedLine.content] : [];
+          addCharacter(name, key);
+          sawDialogue = true;
+          continue;
+        }
+
+        const colonPrefix = trimmed.includes(':') ? trimmed.split(':')[0].trim() : '';
+        if (colonPrefix && isReservedSpeakerLabel(colonPrefix)) {
+          flushTurn();
+          const instruction = normalizeNarratorLine(trimmed);
+          if (instruction) narratorParts.push(instruction);
+          if (sawDialogue) narratorBlocksAfterDialogue += 1;
+          continue;
+        }
+
+        // A colon in a URL/time or an instruction label is content, not a speaker.
+        if (parsedLine.invalidReasons?.length && /:/.test(trimmed) && !isReservedSpeakerLabel(trimmed.split(':')[0])) {
+          invalidSpeakerLines.push(trimmed);
+        }
+
+        const content = stripDecorativeSymbols(trimmed);
+        if (!content) continue;
+        if (currentSpeaker) {
+          currentParts.push(content);
         } else {
-          if (currentSpeaker) {
-            currentParts.push(trimmed);
-          } else if (directionBlock) {
-            directionBlock = `${directionBlock}\n${trimmed}`;
-          } else {
-            directionBlock = trimmed;
-          }
+          narratorParts.push(normalizeNarratorLine(content));
+          if (sawDialogue) narratorBlocksAfterDialogue += 1;
         }
       }
-
       flushTurn();
 
-      let result = '';
-      if (directionBlock) result += directionBlock.trim();
-      if (turns.length > 0) {
-        result += (result ? '\n\n' : '') + turns.join('\n\n');
+      const narratorText = narratorParts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+      const tooManyCharacters = characterNames.length > 2;
+      const compactDialogueLine = lines.some(line => {
+        const markers = line.match(/(?:^|\s)[A-ZÀ-Ỹ][\p{L}\p{N} ._'’\-()]{0,35}:\s*/gu) || [];
+        return markers.length > 1;
+      });
+      const hasUnclearStructure = invalidSpeakerLines.length > 0 || narratorBlocksAfterDialogue > 0 || compactDialogueLine;
+      const normalizedParts = [];
+      if (narratorText && turns.length) normalizedParts.push(`Narrator: ${narratorText}`);
+      if (turns.length) normalizedParts.push(turns.map(turn => `${turn.speaker}: ${turn.text}`).join('\n\n'));
+      if (!turns.length && narratorText) normalizedParts.push(narratorText);
+
+      const normalizedText = normalizedParts.join('\n\n').trim();
+      return {
+        narrator: { text: narratorText },
+        narratorText,
+        characters: characterNames.map(name => ({ name })),
+        characterNames,
+        turns,
+        duplicateNames,
+        invalidSpeakerLines,
+        compactDialogueLine,
+        tooManyCharacters,
+        hasUnclearStructure,
+        normalizedText,
+        isDialogue: turns.length > 0
+      };
+    }
+
+    function formatDialogueScript(rawText) {
+      return parseNormalizedScript(rawText).normalizedText;
+    }
+
+    function getScriptValidation(parsed = parseNormalizedScript(document.getElementById('scriptInput')?.value || '')) {
+      const messages = [];
+      if (parsed.tooManyCharacters) {
+        messages.push(`Phát hiện ${parsed.characterNames.length} nhân vật hội thoại (${parsed.characterNames.join(', ')}). Một request chỉ hỗ trợ tối đa 2 nhân vật.`);
+      }
+      if (parsed.duplicateNames.length) {
+        messages.push(`Tên nhân vật bị trùng khác hoa thường: ${parsed.duplicateNames.join(', ')}.`);
+      }
+      if (parsed.invalidSpeakerLines.length) {
+        messages.push('Có dòng chứa speaker không hợp lệ hoặc chưa rõ cấu trúc; hãy kiểm tra trước khi tạo audio.');
+      }
+      if (parsed.hasUnclearStructure && !parsed.invalidSpeakerLines.length) {
+        messages.push('Cấu trúc lời dẫn/hội thoại chưa rõ; hãy bấm Chuẩn hóa và xác nhận AI fallback trước khi tạo audio.');
+      }
+      if (parsed.turns.some(turn => !turn.text.trim())) {
+        messages.push('Có lượt thoại rỗng; hãy bổ sung nội dung hoặc xóa dòng đó.');
+      }
+      return { parsed, messages, hasBlockingError: messages.length > 0 };
+    }
+
+    function updateSpeakerValidationUI(parsed = parseNormalizedScript(document.getElementById('scriptInput')?.value || '')) {
+      const warning = document.getElementById('speakerValidationWarning');
+      const warningText = document.getElementById('speakerValidationText');
+      if (!warning || !warningText) return;
+
+      const validation = getScriptValidation(parsed);
+      const hasScript = Boolean(document.getElementById('scriptInput')?.value.trim());
+      const messages = validation.messages.slice();
+      const duplicateConfigured = speakers
+        .map(character => speakerNameKey(character.name))
+        .filter((key, index, all) => key && all.indexOf(key) !== index);
+      if (duplicateConfigured.length) {
+        messages.push('Danh sách card đang có tên nhân vật bị trùng; hãy đổi tên trước khi tạo audio.');
       }
 
-      return result.trim();
+      if (messages.length && hasScript) {
+        warning.classList.remove('hidden');
+        warningText.textContent = messages.join(' ');
+      } else {
+        warning.classList.add('hidden');
+        warningText.textContent = '';
+      }
+
+      const narratorStatus = document.getElementById('narratorStatus');
+      if (narratorStatus) {
+        narratorStatus.textContent = parsed.narratorText ? 'Có lời dẫn trong script' : 'Không có lời dẫn';
+      }
+    }
+
+    function syncCharactersFromParsed(parsed) {
+      const oldByName = new Map();
+      speakers.forEach(character => {
+        const key = speakerNameKey(character.name);
+        if (key && !oldByName.has(key)) oldByName.set(key, character);
+      });
+
+      const defaultCharacters = getDefaultSpeakers();
+      const usedIds = new Set();
+      const nextCharacters = parsed.characterNames.map((name, idx) => {
+        const key = speakerNameKey(name);
+        const existing = oldByName.get(key);
+        const fallback = defaultCharacters[idx] || defaultCharacters[idx % defaultCharacters.length];
+        const style = existing?.style || existing?.description || '';
+        let id = existing?.id || idx + 1;
+        while (usedIds.has(id)) id += 1;
+        usedIds.add(id);
+        return {
+          id,
+          name,
+          voice: existing?.voice || fallback.voice,
+          style,
+          description: style
+        };
+      });
+
+      // A legacy Narrator card is migrated to the separate narrator configuration once.
+      const legacyNarrator = speakers.find(character => speakerNameKey(character.name) === 'narrator');
+      if (legacyNarrator && (!narratorConfig.voice || narratorConfig.voice === 'Kore')) {
+        narratorConfig.voice = legacyNarrator.voice || narratorConfig.voice;
+        narratorConfig.style = legacyNarrator.style || legacyNarrator.description || narratorConfig.style;
+      }
+
+      speakers = nextCharacters;
+      setSpeakerCount(2, { skipSave: true });
+      renderSpeakerCards();
+      updateSpeakerValidationUI(parsed);
+    }
+
+    function applyParsedNormalization(parsed, originalText, sourceLabel = 'code') {
+      const textarea = document.getElementById('scriptInput');
+      if (!textarea || !parsed.normalizedText.trim()) {
+        throw new Error('Parser không tạo được kịch bản có nội dung.');
+      }
+
+      const normalizedText = parsed.normalizedText.trim();
+      const changed = normalizedText !== originalText.trim();
+      if (changed) lastScriptBeforeNormalization = originalText;
+      textarea.value = normalizedText;
+      document.getElementById('charCount').textContent = normalizedText.length;
+      syncCharactersFromParsed(parsed);
+      if (parsed.turns.length) switchMode('multi', { skipSave: true });
+      setRevertNormalizationButtonState(changed);
+      saveStudioState(true);
+
+      if (parsed.tooManyCharacters) {
+        showToast(`Đã chuẩn hóa bằng ${sourceLabel}, nhưng có hơn 2 nhân vật nên chưa thể tạo audio.`, 'info');
+        updateStatus('Đã chuẩn hóa; cần giảm còn tối đa 2 nhân vật trước khi tạo audio.', 'amber');
+      } else if (changed) {
+        showToast(`Đã chuẩn hóa kịch bản bằng ${sourceLabel}. Bạn có thể chỉnh sửa hoặc hoàn tác.`, 'success');
+        updateStatus(`Chuẩn hóa bằng ${sourceLabel} hoàn tất.`, 'emerald');
+      } else {
+        showToast('Kịch bản đã ở định dạng phù hợp.', 'info');
+        updateStatus('Kịch bản đã ở định dạng phù hợp.', 'slate');
+      }
+      return normalizedText;
     }
 
     function setRevertNormalizationButtonState(enabled) {
@@ -1506,6 +1882,9 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
 
       textarea.value = lastScriptBeforeNormalization;
       document.getElementById('charCount').textContent = textarea.value.length;
+      const parsed = parseNormalizedScript(textarea.value);
+      syncCharactersFromParsed(parsed);
+      if (parsed.turns.length) switchMode('multi', { skipSave: true });
       lastScriptBeforeNormalization = null;
       setRevertNormalizationButtonState(false);
       saveStudioState(true);
@@ -1521,16 +1900,7 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
         return;
       }
 
-      const formatted = formatDialogueScript(rawText);
-      if (formatted === rawText) {
-        showToast('Kịch bản đã ở định dạng chuẩn.', 'info');
-        return;
-      }
-
-      textarea.value = formatted;
-      document.getElementById('charCount').textContent = formatted.length;
-      saveStudioState(true);
-      showToast('Đã chuẩn hóa kịch bản hội thoại!', 'success');
+      applyParsedNormalization(parseNormalizedScript(rawText), rawText, 'code');
     }
 
     function extractTextFromGenerateContentResponse(data) {
@@ -1559,36 +1929,35 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
           }
         };
 
+        let normalizeTimeoutId = null;
         try {
+          const controller = typeof AbortController === 'function' ? new AbortController() : null;
+          normalizeTimeoutId = controller ? setTimeout(() => controller.abort(), 60000) : null;
           const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            ...(controller ? { signal: controller.signal } : {})
           });
+          if (normalizeTimeoutId) {
+            clearTimeout(normalizeTimeoutId);
+            normalizeTimeoutId = null;
+          }
 
           if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
             const status = response.status;
             const message = errData.error?.message || `Lỗi API HTTP ${status}`;
 
-            if (status === 404 || status === 400) {
+            if (isCredentialOrPayloadError(status, message)) {
+              const error = new Error(`[${model}] ${message}`);
+              error.code = 'NO_FALLBACK';
+              throw error;
+            }
+
+            if (isFallbackEligibleError(status, message)) {
               lastError = new Error(`[${model}] ${message}`);
               updateStatus(`Model [${model}] không khả dụng cho chuẩn hóa AI, đang thử model khác...`, 'amber');
-              continue;
-            }
-
-            if (status === 429 && isDailyQuotaExceededError(status, message)) {
-              lastError = new Error(`[${model}] ${message}`);
-              const noQuotaMsg = isNoFreeTierQuotaError(status, message)
-                ? `Model [${model}] không có quota miễn phí (limit: 0), đang thử model khác...`
-                : `Model [${model}] đã hết quota, đang thử model khác...`;
-              updateStatus(noQuotaMsg, 'amber');
-              continue;
-            }
-
-            if (status === 429 || status === 503) {
-              lastError = new Error(`[${model}] ${message}`);
-              updateStatus(`Model [${model}] tạm thời quá tải (${status}), đang thử model khác...`, 'amber');
               continue;
             }
 
@@ -1604,16 +1973,17 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
 
           return { text, model };
         } catch (err) {
+          if (normalizeTimeoutId) clearTimeout(normalizeTimeoutId);
+          if (err?.code === 'NO_FALLBACK') throw err;
           if (err && /^(\[.+\]\s)/.test(String(err.message || ''))) {
             lastError = err;
           } else {
             lastError = new Error(`[${model}] ${err?.message || 'Lỗi không xác định'}`);
           }
-          if (/không khả dụng|quota|quá tải|429|503|404|400/i.test(String(lastError.message || ''))) {
+          if (/timeout|aborted|abort|network|failed to fetch|không khả dụng|quota|quá tải|429|500|502|503|504|404/i.test(String(lastError.message || ''))) {
             continue;
           }
-          // For transient network/unknown errors, try next model as best effort
-          continue;
+          throw lastError;
         }
       }
 
@@ -1624,18 +1994,18 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       const mode = currentMode;
       const narratorRule = [
         '- Nếu ở đầu văn bản gốc có câu dẫn chuyện, bối cảnh hoặc yêu cầu đề bài (ví dụ: "Activity 1: 🎧 (Track 7.11) Listen to a conversation..."), KHÔNG được xóa bỏ; hãy tách thành lượt thoại mở đầu của nhân vật `Narrator:` (ví dụ: `Narrator: [clearly and steadily] Listen to a conversation...`).',
-        '- Tự động lược bỏ emoji/ký hiệu hình ảnh (như `🎧`) và mã/nhãn không cần đọc thành tiếng (như `Activity 1:`, `(Track 7.11)`), đồng thời chuyển ký hiệu phạm vi như `(1–5)`, `(A–E)` thành dạng đọc tự nhiên (`one to five`, `A to E`).'
+        '- Có thể lược bỏ emoji/ký hiệu hình ảnh và nhãn trình bày không cần đọc (như `Activity 1:`), nhưng phải giữ nguyên mọi chữ số, số thập phân, mã track, phạm vi số và giới hạn bài tập; tuyệt đối không viết số thành chữ hoặc đổi `7.11` thành `seven point eleven`.'
       ].join('\n');
       const speakerNamePriorityRule = [
-        '- Ưu tiên tuyệt đối tên nhân vật trong kịch bản gốc: nếu trong kịch bản gốc đã có tên nhân vật (ví dụ `Emily`, `Tour Guide`, `Leo`, `Mr. Carter`..., ở tiền tố `Tên:` hoặc được nhắc rõ trong đoạn dẫn như "conversation between Emily and a tour guide"), BẮT BUỘC phải giữ nguyên và sử dụng chính xác các tên nhân vật đó trong các lượt thoại; tuyệt đối KHÔNG thay thế bằng tên mặc định đang cấu hình sẵn trong giao diện (`Alex`, `Sarah`, `David`).',
+        '- Ưu tiên tuyệt đối tên nhân vật trong kịch bản gốc: nếu trong kịch bản gốc đã có tên nhân vật (ví dụ `Emily`, `Tour Guide`, `Leo`, `Mr. Carter`..., ở tiền tố `Tên:` hoặc được nhắc rõ trong đoạn dẫn như "conversation between Emily and a tour guide"), BẮT BUỘC phải giữ nguyên và sử dụng chính xác các tên nhân vật đó trong các lượt thoại; tuyệt đối KHÔNG thay thế bằng tên mặc định đang cấu hình sẵn trong giao diện (`Alex`, `Sarah`).',
         '- Chỉ khi kịch bản gốc hoàn toàn không có tên nhân vật (chỉ có lời thoại trống hoặc đại từ chung chung, không xác định được tên), mới được phép lấy tên từ danh sách cấu hình hiện tại hoặc đặt tên phù hợp, nhất quán.'
       ].join('\n');
 
       if (mode === 'multi') {
-        const activeSpeakers = speakers.slice(0, speakerCount);
+        const activeSpeakers = speakers;
         const speakerNames = activeSpeakers.map(s => `${s.name} (${s.voice})`).join(', ');
         const speakerProfiles = activeSpeakers.map(s => {
-          const desc = (s.description || '').trim();
+          const desc = (s.style || s.description || '').trim();
           return `- ${s.name} (${s.voice}): ${desc || 'Chưa có mô tả giọng/độ tuổi/tính cách.'}`;
         }).join('\n');
 
@@ -1649,6 +2019,7 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
           'Yêu cầu bắt buộc:',
           '- Chỉ trả về kịch bản đã chuẩn hóa, không giải thích thêm.',
           '- Mỗi lượt thoại trên một dòng theo định dạng: `TênNhânVật: Lời thoại`.',
+          '- Không gộp hoặc đổi tên các nhân vật có trong nội dung gốc. Nếu có hơn hai nhân vật, giữ nguyên để ứng dụng cảnh báo thay vì tự ý tạo audio sai.',
           speakerNamePriorityRule,
           '- Tên đang cấu hình hiện tại (chỉ dùng khi kịch bản gốc không có tên): ' + speakerNames + '. Có thể dùng thêm `Narrator` khi cần tách lời dẫn/bối cảnh/hướng dẫn ở đầu.',
           narratorRule,
@@ -1682,66 +2053,31 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
     }
 
     function extractDialogueSpeakerNames(scriptText) {
-      const lines = String(scriptText || '').replace(/\r\n?/g, '\n').split('\n');
-      const speakerLineRe = /^\s*(?!\[|\()([^:\n]+?)\s*:\s*(.*)$/;
-      const names = [];
-      const seen = new Set();
-      for (const line of lines) {
-        const m = line.match(speakerLineRe);
-        if (!m) continue;
-        const name = m[1].trim();
-        const key = name.toLowerCase();
-        if (!name || seen.has(key)) continue;
-        seen.add(key);
-        names.push(name);
-      }
-      return names;
+      return parseNormalizedScript(scriptText).characterNames;
     }
 
     function syncSpeakersFromNormalizedScript(normalizedText) {
-      const speakerNames = extractDialogueSpeakerNames(normalizedText);
-      if (speakerNames.length < 2) return false;
+      const parsed = parseNormalizedScript(normalizedText);
+      if (!parsed.turns.length && !parsed.narratorText) return false;
+      syncCharactersFromParsed(parsed);
+      if (parsed.turns.length) switchMode('multi', { skipSave: true });
+      return parsed.characterNames.length > 0;
+    }
 
-      const targetSpeakerCount = Math.min(speakerNames.length, 3);
-      const syncedNames = speakerNames.slice(0, targetSpeakerCount);
-      const narratorDescription = 'Clear, steady exam announcer with a standard accent, reading instructions distinctly';
-      const defaults = getDefaultSpeakers();
+    function extractNumericTokensForValidation(text) {
+      const withoutLayoutNumber = normalizeLineBreaks(text)
+        .replace(/^\s*(?:Exercise|Activity)\s+\d+[\s.)-]*:?\s*/gim, '');
+      return withoutLayoutNumber.match(/\d+(?:[.,]\d+)?/g) || [];
+    }
 
-      speakers = defaults.map((def, idx) => {
-        const existing = speakers[idx] || {};
-        const base = {
-          id: def.id,
-          name: typeof existing.name === 'string' && existing.name ? existing.name : def.name,
-          voice: typeof existing.voice === 'string' && existing.voice ? existing.voice : def.voice,
-          description: typeof existing.description === 'string' ? existing.description : (def.description || '')
-        };
-
-        if (idx < targetSpeakerCount) {
-          const syncedName = syncedNames[idx] || base.name;
-          base.name = syncedName;
-          if (String(syncedName).trim().toLowerCase() === 'narrator') {
-            base.voice = 'Kore';
-            if (!String(base.description || '').trim()) {
-              base.description = narratorDescription;
-            }
-          }
-        }
-
-        return base;
-      });
-
-      switchMode('multi', { skipSave: true });
-      setSpeakerCount(targetSpeakerCount, { skipSave: true });
-      return true;
+    function numericTokensWerePreserved(originalText, normalizedText) {
+      const originalTokens = extractNumericTokensForValidation(originalText);
+      const normalizedTokens = extractNumericTokensForValidation(normalizedText);
+      return originalTokens.length === normalizedTokens.length
+        && originalTokens.every((token, index) => token === normalizedTokens[index]);
     }
 
     async function normalizeScriptWithAI() {
-      const apiKey = getApiKey();
-      if (!apiKey) {
-        showToast('Vui lòng nhập Google AI Studio API Key trước!', 'error');
-        return;
-      }
-
       const textarea = document.getElementById('scriptInput');
       const btn = document.getElementById('aiNormalizeBtn');
       const rawText = textarea ? textarea.value : '';
@@ -1750,10 +2086,41 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
         return;
       }
 
+      // Code is deliberately the first pass. It is deterministic and keeps the exercise text intact.
+      const codeParsed = parseNormalizedScript(rawText);
+      updateSpeakerValidationUI(codeParsed);
+      if (!codeParsed.hasUnclearStructure) {
+        try {
+          applyParsedNormalization(codeParsed, rawText, 'code');
+        } catch (err) {
+          showToast(`Không thể chuẩn hóa bằng code: ${err.message}`, 'error');
+          updateStatus(`Lỗi parser: ${err.message}`, 'rose');
+        }
+        return;
+      }
+
+      const unclearReason = codeParsed.invalidSpeakerLines.length
+        ? 'có dòng speaker chưa rõ'
+        : 'có lời dẫn xen giữa hội thoại';
+      const wantsAiFallback = typeof window.confirm !== 'function'
+        ? false
+        : window.confirm(`Parser phát hiện ${unclearReason}. Bạn có muốn dùng AI fallback để gợi ý format không? Nội dung sẽ được kiểm tra lại trước khi cập nhật.`);
+      if (!wantsAiFallback) {
+        showToast('Đã giữ nguyên kịch bản để bạn kiểm tra thủ công.', 'info');
+        updateStatus('Cấu trúc chưa rõ; chưa gọi AI fallback.', 'amber');
+        return;
+      }
+
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        showToast('Cần nhập Google AI Studio API Key để dùng AI fallback.', 'error');
+        return;
+      }
+
       const originalBtnHTML = btn ? btn.innerHTML : '';
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-violet-400"></i> Đang chuẩn hóa AI...';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-violet-400"></i> Đang dùng AI fallback...';
       }
 
       try {
@@ -1771,36 +2138,17 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
           throw new Error('AI trả về nội dung rỗng sau khi chuẩn hóa.');
         }
 
-        const syncedSpeakersFromScript = syncSpeakersFromNormalizedScript(normalizedText);
-
-        if (currentMode === 'multi') {
-          normalizedText = formatDialogueScript(normalizedText);
+        const aiParsed = parseNormalizedScript(normalizedText);
+        if (!aiParsed.normalizedText.trim()) {
+          throw new Error('AI trả về kịch bản rỗng sau khi kiểm tra.');
         }
-
-        if (!normalizedText.trim()) {
-          throw new Error('Kịch bản rỗng sau khi chuẩn hóa.');
+        if (!numericTokensWerePreserved(rawText, normalizedText)) {
+          throw new Error('AI đã thay đổi chữ số hoặc mã số trong bài tập; kết quả bị từ chối để bảo toàn nội dung gốc.');
         }
-
-        if (!syncedSpeakersFromScript && normalizedText === rawText) {
-          showToast('Kịch bản đã ở dạng phù hợp, không có thay đổi lớn.', 'info');
-          updateStatus('Chuẩn hóa bằng AI hoàn tất (không có thay đổi).', 'slate');
-          saveStudioState(true);
-          return;
+        if (aiParsed.invalidSpeakerLines.length || aiParsed.hasUnclearStructure || aiParsed.turns.some(turn => !turn.text.trim())) {
+          throw new Error('Kết quả AI còn speaker không hợp lệ hoặc lượt thoại rỗng.');
         }
-
-        lastScriptBeforeNormalization = rawText;
-        textarea.value = normalizedText;
-        document.getElementById('charCount').textContent = normalizedText.length;
-        setRevertNormalizationButtonState(true);
-        saveStudioState(true);
-
-        if (syncedSpeakersFromScript) {
-          showToast(`Đã chuẩn hóa bằng AI (${result.model}) và đồng bộ ${speakerCount} nhân vật theo kịch bản.`, 'success');
-          updateStatus(`Chuẩn hóa bằng AI thành công với [${result.model}] và tự động chuyển/cập nhật cấu hình nhân vật theo kịch bản.`, 'emerald');
-        } else {
-          showToast(`Đã chuẩn hóa kịch bản bằng AI (${result.model})`, 'success');
-          updateStatus(`Chuẩn hóa kịch bản bằng AI thành công với [${result.model}].`, 'emerald');
-        }
+        applyParsedNormalization(aiParsed, rawText, `AI fallback (${result.model})`);
       } catch (err) {
         console.error('AI normalize error:', err);
         showToast(`Lỗi chuẩn hóa bằng AI: ${err.message}`, 'error');
@@ -1808,12 +2156,199 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = originalBtnHTML || '<i class="fa-solid fa-sparkles text-violet-400"></i> Chuẩn hóa bằng AI';
+          btn.innerHTML = originalBtnHTML || '<i class="fa-solid fa-wand-magic-sparkles text-indigo-100"></i> Chuẩn hóa';
         }
       }
     }
 
     // --- GEMINI API SPEECH GENERATION LOGIC ---
+    const SPEECH_NUMBER_ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+    const SPEECH_NUMBER_TEENS = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+    const SPEECH_NUMBER_TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+    function digitsToSpeechWords(value) {
+      return String(value).split('').map(digit => SPEECH_NUMBER_ONES[Number(digit)]).join(' ');
+    }
+
+    function integerToSpeechWords(value) {
+      const number = Number(value);
+      if (!Number.isInteger(number) || number < 0 || number > 999) return digitsToSpeechWords(value);
+      if (number < 10) return SPEECH_NUMBER_ONES[number];
+      if (number < 20) return SPEECH_NUMBER_TEENS[number - 10];
+      if (number < 100) {
+        return number % 10 === 0
+          ? SPEECH_NUMBER_TENS[number / 10]
+          : `${SPEECH_NUMBER_TENS[Math.floor(number / 10)]}-${SPEECH_NUMBER_ONES[number % 10]}`;
+      }
+      const hundreds = `${SPEECH_NUMBER_ONES[Math.floor(number / 100)]} hundred`;
+      const remainder = number % 100;
+      return remainder ? `${hundreds} ${integerToSpeechWords(remainder)}` : hundreds;
+    }
+
+    function createSpeechTextForTts(text, scope = 'dialogue') {
+      const source = String(text || '');
+      if (scope !== 'narrator') return source;
+
+      return source
+        // Track identifiers are codes: read every digit after the decimal point.
+        .replace(/\b(Track|Audio)\s+(\d+)\.(\d+)\b/gi, (_, label, major, minor) => (
+          `${label} ${digitsToSpeechWords(major)} point ${digitsToSpeechWords(minor)}`
+        ))
+        // Ranges in instructions are easier to understand when spoken as "one to five".
+        .replace(/\b(\d+)\s*[–—-]\s*(\d+)\b/g, (_, start, end) => (
+          `${integerToSpeechWords(start)} to ${integerToSpeechWords(end)}`
+        ))
+        .replace(/\b([A-Za-z])\s*[–—-]\s*([A-Za-z])\b/g, (_, start, end) => `${start} to ${end}`);
+    }
+
+    function buildTtsContents(scriptText) {
+      return [{
+        role: 'user',
+        parts: [{ text: String(scriptText || '') }]
+      }];
+    }
+
+    function supportsStructuredTtsMetadata(modelName) {
+      return /^(?:gemini-3\.1-flash-tts-preview|gemini-3\.8-flash(?:-lite)?-tts)$/i.test(String(modelName || ''));
+    }
+
+    function combineTtsStyle(...styles) {
+      return styles
+        .map(style => String(style || '').trim())
+        .filter(Boolean)
+        .join(' ');
+    }
+
+    function buildStructuredTtsContents(structuredParts) {
+      return [{
+        role: 'user',
+        parts: (Array.isArray(structuredParts) ? structuredParts : [])
+          .filter(part => String(part?.text || '').trim())
+          .map(part => {
+            const apiPart = { text: String(part.text) };
+            const speechMetadata = {};
+            if (part.speaker) speechMetadata.speaker = String(part.speaker);
+            if (part.style) speechMetadata.style = String(part.style);
+            if (Object.keys(speechMetadata).length) apiPart.speechMetadata = speechMetadata;
+            return apiPart;
+          })
+      }];
+    }
+
+    function createTtsPayload({ transcript, structuredParts, generationConfig }) {
+      return {
+        // __tts is client-only metadata. It is converted to the model-specific
+        // request shape immediately before fetch, so it never reaches the API.
+        __tts: {
+          transcript: String(transcript || ''),
+          structuredParts: Array.isArray(structuredParts) ? structuredParts : []
+        },
+        contents: buildTtsContents(transcript),
+        generationConfig
+      };
+    }
+
+    function prepareTtsRequestPayload(payload, modelName) {
+      const requestPayload = Object.assign({}, payload);
+      const ttsMetadata = requestPayload.__tts;
+      delete requestPayload.__tts;
+      // TTS models generally reject systemInstruction. Keep the API request
+      // transcript-only unless the model supports structured speech metadata.
+      delete requestPayload.systemInstruction;
+
+      if (!ttsMetadata) return requestPayload;
+
+      if (supportsStructuredTtsMetadata(modelName) && ttsMetadata.structuredParts?.length) {
+        requestPayload.contents = buildStructuredTtsContents(ttsMetadata.structuredParts);
+      } else {
+        requestPayload.contents = buildTtsContents(ttsMetadata.transcript);
+      }
+      return requestPayload;
+    }
+
+    function createNarratorPayload(text) {
+      const style = narratorConfig.style.trim() || DEFAULT_NARRATOR_STYLE;
+      const speechText = createSpeechTextForTts(text, 'narrator');
+      return createTtsPayload({
+        transcript: speechText,
+        structuredParts: [{
+          text: speechText,
+          style: combineTtsStyle(style, LISTENING_PACE_INSTRUCTION)
+        }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: narratorConfig.voice || 'Kore' }
+            }
+          }
+        }
+      });
+    }
+
+    function createDialoguePayload(parsed, activeCharacters) {
+      const speakerConfigs = activeCharacters.map(character => ({
+        speaker: character.name,
+        voiceConfig: {
+          prebuiltVoiceConfig: { voiceName: character.voice }
+        }
+      }));
+      const dialogueTextWithLabels = parsed.turns.map(turn => `${turn.speaker}: ${turn.text}`).join('\n\n');
+      const dialogueText = activeCharacters.length === 1
+        ? parsed.turns.map(turn => turn.text).join('\n\n')
+        : dialogueTextWithLabels;
+      const characterByKey = new Map(
+        activeCharacters.map(character => [speakerNameKey(character.name), character])
+      );
+      const structuredParts = parsed.turns.map(turn => {
+        const character = characterByKey.get(speakerNameKey(turn.speaker));
+        const style = character
+          ? (character.style || character.description || DEFAULT_DIALOGUE_STYLE)
+          : DEFAULT_DIALOGUE_STYLE;
+        return {
+          text: turn.text,
+          speaker: activeCharacters.length > 1 ? turn.speaker : '',
+          style: combineTtsStyle(style, LISTENING_PACE_INSTRUCTION)
+        };
+      });
+
+      const speechConfig = activeCharacters.length === 1
+        ? {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: activeCharacters[0].voice }
+            }
+          }
+        : {
+            multiSpeakerVoiceConfig: {
+              speakerVoiceConfigs: speakerConfigs
+            }
+          };
+
+      return createTtsPayload({
+        transcript: dialogueText,
+        structuredParts,
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig
+        }
+      });
+    }
+
+    function beginGeneration() {
+      if (generationAbortController) generationAbortController.abort();
+      generationCancelled = false;
+      generationSequence += 1;
+      activeGenerationId = generationSequence;
+      generationAbortController = new AbortController();
+      return activeGenerationId;
+    }
+
+    function assertGenerationActive(generationId) {
+      if (generationCancelled || generationId !== activeGenerationId) {
+        throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
+      }
+    }
+
     async function generateSpeech() {
       const apiKey = getApiKey();
       if (!apiKey) {
@@ -1827,7 +2362,29 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
         return;
       }
 
-      const processedScript = currentMode === 'multi' ? formatDialogueScript(scriptText) : scriptText;
+      let parsed = null;
+      let activeCharacters = [];
+      if (currentMode === 'multi') {
+        parsed = parseNormalizedScript(scriptText);
+        syncCharactersFromParsed(parsed);
+        const validation = getScriptValidation(parsed);
+        if (validation.hasBlockingError) {
+          updateSpeakerValidationUI(parsed);
+          showToast(validation.messages.join(' '), 'error');
+          updateStatus('Chưa tạo audio vì script cần được kiểm tra.', 'rose');
+          return;
+        }
+        if (!parsed.turns.length && !parsed.narratorText) {
+          showToast('Script không có lời dẫn hoặc lượt thoại có nội dung.', 'error');
+          return;
+        }
+        activeCharacters = parsed.characterNames.map(name => speakers.find(character => speakerNameKey(character.name) === speakerNameKey(name))).filter(Boolean);
+        if (parsed.turns.length && activeCharacters.length > 2) {
+          showToast(`Phát hiện ${activeCharacters.length} nhân vật. Request hội thoại chỉ hỗ trợ tối đa 2; chưa tạo audio.`, 'error');
+          updateStatus('Đã chặn generation vì có hơn 2 nhân vật hội thoại.', 'rose');
+          return;
+        }
+      }
 
       let activeModel = document.getElementById('modelSelect').value;
       if (activeModel === '__CUSTOM__') {
@@ -1839,92 +2396,82 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       }
 
       const autoFallback = document.getElementById('autoFallbackToggle').checked;
-
-      generationCancelled = false;
-      setCancelButtonVisible(false);
-      setLoadingState(true, 'Đang tạo dữ liệu âm thanh...');
+      const generationId = beginGeneration();
+      setLoadingState(true, currentMode === 'multi' ? 'Đang tạo audio theo pipeline Narrator + hội thoại...' : 'Đang tạo dữ liệu âm thanh...');
+      setCancelButtonVisible(true);
 
       try {
-        let payload = {};
-
+        const segments = [];
         if (currentMode === 'single') {
           const voice = document.getElementById('singleVoiceSelect').value;
           const stylePrompt = document.getElementById('singleStylePrompt').value.trim();
-          
-          let fullPrompt = scriptText;
-          if (stylePrompt) {
-            fullPrompt = `${stylePrompt}\n\nText:\n${scriptText}`;
+          const payload = createTtsPayload({
+            transcript: scriptText,
+            structuredParts: [{
+              text: scriptText,
+              style: combineTtsStyle(stylePrompt, LISTENING_PACE_INSTRUCTION)
+            }],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
+              }
+            }
+          });
+          updateStatus('Đang tạo audio đơn giọng...', 'indigo');
+          const result = await fetchWithRetryAndFallback(apiKey, activeModel, payload, autoFallback, generationId);
+          assertGenerationActive(generationId);
+          segments.push(decodeAudioResponse(result.audioData, result.mimeType, result.sampleRate));
+        } else {
+          if (parsed.narratorText) {
+            updateStatus('Đang tạo audio Narrator riêng...', 'indigo');
+            const narratorResult = await fetchWithRetryAndFallback(
+              apiKey,
+              activeModel,
+              createNarratorPayload(parsed.narratorText),
+              autoFallback,
+              generationId
+            );
+            assertGenerationActive(generationId);
+            segments.push(decodeAudioResponse(narratorResult.audioData, narratorResult.mimeType, narratorResult.sampleRate));
           }
 
-          payload = {
-            contents: [{
-              parts: [{ text: fullPrompt }]
-            }],
-            generationConfig: {
-              responseModalities: ["AUDIO"],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: voice }
-                }
-              }
-            }
-          };
-        } else {
-          // Multi-Speaker Mode
-          const activeSpeakers = speakers.slice(0, speakerCount);
-          const speakerConfigs = activeSpeakers.map(s => ({
-            speaker: s.name,
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: s.voice }
-            }
-          }));
-
-          const characterProfiles = activeSpeakers.map(s => {
-            const desc = (s.description || '').trim();
-            return `- ${s.name} (${s.voice}): ${desc || 'Chưa có mô tả giọng/độ tuổi/tính cách.'}`;
-          });
-
-          let instruction = "Generate spoken audio for the following multi-speaker dialogue script formatted as 'SpeakerName: Text'.\n";
-          instruction += "Use these character profiles (voice/age/personality) for performance; do not read the profiles aloud:\n";
-          instruction += characterProfiles.join('\n') + "\n";
-          instruction += "The script contains only speaker lines and in-line emotion/acting cues.\n\n";
-
-          payload = {
-            contents: [{
-              parts: [{ text: instruction + processedScript }]
-            }],
-            generationConfig: {
-              responseModalities: ["AUDIO"],
-              speechConfig: {
-                multiSpeakerVoiceConfig: {
-                  speakerVoiceConfigs: speakerConfigs
-                }
-              }
-            }
-          };
+          if (parsed.turns.length) {
+            updateStatus('Đang tạo audio hội thoại riêng...', 'indigo');
+            const dialogueResult = await fetchWithRetryAndFallback(
+              apiKey,
+              activeModel,
+              createDialoguePayload(parsed, activeCharacters),
+              autoFallback,
+              generationId
+            );
+            assertGenerationActive(generationId);
+            segments.push(decodeAudioResponse(dialogueResult.audioData, dialogueResult.mimeType, dialogueResult.sampleRate));
+          }
         }
 
-        // Call API with backoff retry & model fallback
-        const result = await fetchWithRetryAndFallback(apiKey, activeModel, payload, autoFallback);
+        assertGenerationActive(generationId);
+        if (!segments.length) throw new Error('API không trả về đoạn audio nào để ghép.');
 
-        updateStatus('Đang chuyển đổi PCM sang file MP3...', 'indigo');
-        const audioOutput = createAudioOutput(result.audioData, result.sampleRate);
+        updateStatus('Đang chuẩn hóa PCM và ghép các đoạn audio...', 'indigo');
+        const mergedPcm = mergePcmSegments(segments, segments.length > 1 ? AUDIO_GAP_MS : 0);
+        updateStatus('Đang encode một file MP3 cuối cùng...', 'indigo');
+        const audioOutput = createAudioOutputFromPcm(mergedPcm.pcm, mergedPcm.sampleRate);
         if (audioOutput.extension === 'wav') {
           updateStatus('Không thể nén MP3, đang dùng file WAV dự phòng...', 'amber');
         }
 
-        // Load into Audio Player
-        const voiceLabel = currentMode === 'single' ? document.getElementById('singleVoiceSelect').value : `${speakerCount} Speakers (${activeModel})`;
+        assertGenerationActive(generationId);
+        const voiceLabel = currentMode === 'single'
+          ? document.getElementById('singleVoiceSelect').value
+          : `Narrator ${narratorConfig.voice} + ${activeCharacters.map(character => character.name).join(', ')} (${activeModel})`;
         loadAudioOutput(audioOutput, voiceLabel);
+        await addToHistory(scriptText.substring(0, 40) + '...', audioOutput, voiceLabel);
 
-        // Add to Session History
-        addToHistory(scriptText.substring(0, 40) + '...', audioOutput, voiceLabel);
-
-        showToast(audioOutput.extension === 'mp3' ? 'Tạo giọng đọc MP3 thành công!' : 'Tạo giọng đọc WAV (dự phòng) thành công!', 'success');
-        updateStatus('Hoàn tất! Sẵn sàng tạo clip tiếp theo.', 'emerald');
-
+        showToast(audioOutput.extension === 'mp3' ? 'Tạo một file MP3 hoàn chỉnh thành công!' : 'Tạo audio WAV (dự phòng) thành công!', 'success');
+        updateStatus('Hoàn tất! History chỉ lưu file cuối cùng.', 'emerald');
       } catch (err) {
-        console.error("GenerateSpeech Error:", err);
+        console.error('GenerateSpeech Error:', err);
         const isCancelled = err && err.message === 'Đã hủy tạo giọng đọc theo yêu cầu.';
         if (isCancelled) {
           showToast('Đã hủy yêu cầu tạo giọng đọc.', 'info');
@@ -1936,14 +2483,66 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
           updateStatus(errMsg, 'rose');
         }
       } finally {
-        setCancelButtonVisible(false);
-        generationCancelled = false;
-        setLoadingState(false, null, true);
+        if (generationId === activeGenerationId) {
+          setCancelButtonVisible(false);
+          generationCancelled = false;
+          generationAbortController = null;
+          setLoadingState(false, null, true);
+        }
       }
     }
 
     // Fetch API wrapper with retry & fallback
-    async function fetchWithRetryAndFallback(apiKey, targetModel, payload, allowFallback) {
+    function isCredentialOrPayloadError(status, message) {
+      const text = String(message || '').toLowerCase();
+      if (status === 401 || status === 403) return true;
+      if (status !== 400) return false;
+      return /api key|apikey|authentication|permission|invalid_argument|invalid argument|invalid.*(?:payload|json)|unknown name|cannot find field|required field|must be|request.*(invalid|malformed)|speechconfig|multispeaker|voiceconfig|unsupported field/i.test(text);
+    }
+
+    function isFallbackEligibleError(status, message) {
+      if (isCredentialOrPayloadError(status, message)) return false;
+      if (status === 400) {
+        return /model.*(?:not found|does not support|unsupported)|audio.*(?:not supported|unsupported)/i.test(String(message || ''));
+      }
+      if ([404, 429, 500, 502, 503, 504].includes(status)) return true;
+      return isHighDemand503Error(status, message);
+    }
+
+    async function fetchWithTimeout(url, options, timeoutMs, generationId) {
+      assertGenerationActive(generationId);
+      const parentSignal = generationAbortController?.signal;
+      const controller = typeof AbortController === 'function' ? new AbortController() : null;
+      let timeoutId = null;
+      let abortParent = null;
+
+      if (controller && parentSignal) {
+        abortParent = () => controller.abort();
+        if (parentSignal.aborted) controller.abort();
+        else parentSignal.addEventListener('abort', abortParent, { once: true });
+      }
+      if (controller) timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const requestOptions = Object.assign({}, options, controller ? { signal: controller.signal } : {});
+        return await fetch(url, requestOptions);
+      } catch (err) {
+        if (generationCancelled || generationId !== activeGenerationId || parentSignal?.aborted) {
+          throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
+        }
+        if (controller?.signal.aborted) {
+          const timeoutError = new Error(`API timeout sau ${Math.round(timeoutMs / 1000)} giây.`);
+          timeoutError.code = 'TRANSIENT_TIMEOUT';
+          throw timeoutError;
+        }
+        throw err;
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (parentSignal && abortParent) parentSignal.removeEventListener('abort', abortParent);
+      }
+    }
+
+    async function fetchWithRetryAndFallback(apiKey, targetModel, payload, allowFallback, generationId = activeGenerationId) {
       let normalizedTarget = targetModel;
       if (normalizedTarget === '__CUSTOM__') {
         normalizedTarget = (document.getElementById('customModelInput')?.value || '').trim() || DEFAULT_MODEL;
@@ -1953,7 +2552,7 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       const modelsToTry = [normalizedTarget];
       if (allowFallback) {
         FALLBACK_MODELS.forEach(m => {
-          if (!modelsToTry.includes(m) && !isDeprecatedModel(m) && !isProTtsModel(m)) modelsToTry.push(m);
+          if (!modelsToTry.includes(m) && !shouldForceDefaultTtsModel(m)) modelsToTry.push(m);
         });
       }
 
@@ -1963,7 +2562,7 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       for (let modelIndex = 0; modelIndex < modelsToTry.length; modelIndex++) {
         const model = modelsToTry[modelIndex];
         lastFailedModel = model;
-        if (generationCancelled) throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
+        assertGenerationActive(generationId);
         updateStatus(`Đang kết nối API: [${model}]...`, 'indigo');
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -1971,36 +2570,35 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
         let delay = 1500;
         const maxTransientRetries = 2; // for short 429 rate-limit / transient network retries
         const highDemandDelays = [3000, 5000, 8000, 12000, 15000];
+        let requestPayload = prepareTtsRequestPayload(payload, model);
 
         while (true) {
-          if (generationCancelled) throw new Error('Đã hủy tạo giọng đọc theo yêu cầu.');
+          assertGenerationActive(generationId);
 
           try {
-            const response = await fetch(apiUrl, {
+            const response = await fetchWithTimeout(apiUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
+              body: JSON.stringify(requestPayload)
+            }, REQUEST_TIMEOUT_MS, generationId);
 
             if (!response.ok) {
               const errData = await response.json().catch(() => ({}));
               const status = response.status;
               const message = errData.error?.message || `Lỗi API HTTP ${status}`;
 
-              if (status === 404 || status === 400) {
-                setCancelButtonVisible(false);
-                lastError = new Error(message);
-                lastError.failedModel = model;
-                lastFailedModel = model;
-                updateStatus(`Model [${model}] không khả dụng/hỗ trợ AUDIO (${status}), đang chuyển model dự phòng...`, 'amber');
-                break; // try next model immediately
+              const apiError = new Error(message);
+              apiError.failedModel = model;
+              apiError.status = status;
+              lastError = apiError;
+              lastFailedModel = model;
+
+              if (isCredentialOrPayloadError(status, message)) {
+                apiError.code = 'NO_FALLBACK';
+                throw apiError;
               }
 
               if (status === 429 && isDailyQuotaExceededError(status, message)) {
-                setCancelButtonVisible(false);
-                lastError = new Error(message);
-                lastError.failedModel = model;
-                lastFailedModel = model;
                 const noQuotaMsg = isNoFreeTierQuotaError(status, message)
                   ? `Model [${model}] không có quota miễn phí (limit: 0), đang chuyển model dự phòng...`
                   : `Model [${model}] đã hết quota trong ngày, đang chuyển model dự phòng...`;
@@ -2012,17 +2610,10 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
                 if (attempt < highDemandDelays.length) {
                   const waitMs = highDemandDelays[attempt];
                   attempt++;
-                  lastError = new Error(message);
-                  lastError.failedModel = model;
-                  lastFailedModel = model;
                   setCancelButtonVisible(true);
-                  await waitForRetryCountdown(model, attempt, highDemandDelays.length, waitMs);
+                  await waitForRetryCountdown(model, attempt, highDemandDelays.length, waitMs, generationId);
                   continue;
                 }
-                setCancelButtonVisible(false);
-                lastError = new Error(message);
-                lastError.failedModel = model;
-                lastFailedModel = model;
                 updateStatus(`Model [${model}] vẫn quá tải sau ${highDemandDelays.length} lần thử, đang chuyển model dự phòng...`, 'amber');
                 break; // move to next model after 5 retries
               }
@@ -2030,35 +2621,34 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
               if (status === 429 || status === 503) {
                 if (attempt < maxTransientRetries) {
                   attempt++;
-                  lastFailedModel = model;
                   updateStatus(`Quá tải/giới hạn [${model}] (${status}), thử lại ${attempt}/${maxTransientRetries} sau ${delay / 1000}s...`, 'amber');
-                  await new Promise(r => setTimeout(r, delay));
+                  await waitForRetryCountdown(model, attempt, maxTransientRetries, delay, generationId);
                   delay *= 2;
                   continue;
                 }
-                setCancelButtonVisible(false);
-                lastError = new Error(message);
-                lastError.failedModel = model;
-                lastFailedModel = model;
                 updateStatus(`Model [${model}] vẫn lỗi ${status}, đang chuyển model dự phòng...`, 'amber');
                 break; // move to next model after retries
               }
 
-              setCancelButtonVisible(false);
-              lastError = new Error(message);
-              lastError.failedModel = model;
-              lastFailedModel = model;
-              break; // other HTTP errors: fallback to next model if available
+              if (isFallbackEligibleError(status, message)) {
+                updateStatus(`Model [${model}] trả về lỗi ${status}, đang chuyển model dự phòng...`, 'amber');
+                break;
+              }
+
+              apiError.code = 'NO_FALLBACK';
+              throw apiError;
             }
 
-            setCancelButtonVisible(false);
             const data = await response.json();
+            assertGenerationActive(generationId);
             const part = data?.candidates?.[0]?.content?.parts?.[0];
 
             if (!part || !part.inlineData || !part.inlineData.data) {
-              lastError = new Error("Phản hồi không chứa dữ liệu audio inlineData!");
+              lastError = new Error('Phản hồi không chứa dữ liệu audio inlineData!');
               lastError.failedModel = model;
+              lastError.code = 'AUDIO_RESPONSE_INVALID';
               lastFailedModel = model;
+              updateStatus(`Model [${model}] không trả về audio, đang thử model dự phòng...`, 'amber');
               break; // try next model
             }
 
@@ -2072,25 +2662,26 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
 
             return {
               audioData: part.inlineData.data,
-              sampleRate: sampleRate
+              sampleRate,
+              mimeType
             };
 
           } catch (err) {
             if (err && err.message === 'Đã hủy tạo giọng đọc theo yêu cầu.') {
-              setCancelButtonVisible(false);
               throw err;
             }
             lastError = err;
             lastFailedModel = model;
             if (lastError && !lastError.failedModel) lastError.failedModel = model;
+            if (err?.code === 'NO_FALLBACK') throw err;
             if (attempt < maxTransientRetries) {
               attempt++;
               updateStatus(`Lỗi kết nối [${model}], thử lại ${attempt}/${maxTransientRetries} sau ${delay / 1000}s...`, 'amber');
-              await new Promise(r => setTimeout(r, delay));
+              await waitForRetryCountdown(model, attempt, maxTransientRetries, delay, generationId);
               delay *= 2;
               continue;
             }
-            setCancelButtonVisible(false);
+            if (!allowFallback) throw err;
             break; // move to next model after retries
           }
         }
@@ -2102,14 +2693,209 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
     }
 
     // --- PCM BASE64 / AUDIO ENCODING HELPERS ---
-    function decodeBase64ToInt16(base64PCM) {
-      const binaryString = window.atob(base64PCM);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+    function decodeBase64ToBytes(base64Data) {
+      if (typeof base64Data !== 'string' || !base64Data.trim()) {
+        throw new Error('Dữ liệu audio base64 rỗng.');
       }
-      return new Int16Array(bytes.buffer);
+      const normalized = base64Data.replace(/-/g, '+').replace(/_/g, '/');
+      const binaryString = window.atob(normalized);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+      return bytes;
+    }
+
+    function decodeBase64ToInt16(base64PCM) {
+      const bytes = decodeBase64ToBytes(base64PCM);
+      if (bytes.byteLength % 2 !== 0) throw new Error('Raw PCM/L16 có số byte lẻ, không thể đọc 16-bit.');
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const pcm = new Int16Array(bytes.byteLength / 2);
+      for (let i = 0; i < pcm.length; i++) pcm[i] = view.getInt16(i * 2, true);
+      return pcm;
+    }
+
+    function readFourCC(bytes, offset) {
+      return String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
+    }
+
+    function parseMimeParameters(mimeType) {
+      const params = {};
+      String(mimeType || '').split(';').slice(1).forEach(part => {
+        const [key, value] = part.split('=').map(item => item.trim().toLowerCase());
+        if (key && value) params[key] = value;
+      });
+      return params;
+    }
+
+    function assertAudioFormat(sampleRate, channels, bitDepth, byteLength) {
+      if (!Number.isInteger(sampleRate) || sampleRate < 8000 || sampleRate > 192000) {
+        throw new Error(`Sample rate không hợp lệ: ${sampleRate}.`);
+      }
+      if (!Number.isInteger(channels) || channels < 1 || channels > 8) {
+        throw new Error(`Số channel không hợp lệ: ${channels}.`);
+      }
+      if (bitDepth !== 16) {
+        throw new Error(`Chỉ hỗ trợ PCM 16-bit, nhận được ${bitDepth}-bit.`);
+      }
+      if (!Number.isInteger(byteLength) || byteLength <= 0 || byteLength % (channels * 2) !== 0) {
+        throw new Error('Độ dài byte audio không khớp với PCM 16-bit/channel.');
+      }
+    }
+
+    function downmixPcm16(bytes, channels, littleEndian = true) {
+      if (bytes.byteLength % (channels * 2) !== 0) {
+        throw new Error('Dữ liệu PCM không đủ một frame theo số channel đã khai báo.');
+      }
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const frameCount = bytes.byteLength / (channels * 2);
+      if (channels === 1) {
+        const mono = new Int16Array(frameCount);
+        for (let i = 0; i < frameCount; i++) mono[i] = view.getInt16(i * 2, littleEndian);
+        return mono;
+      }
+      const mono = new Int16Array(frameCount);
+      for (let frame = 0; frame < frameCount; frame++) {
+        let sum = 0;
+        for (let channel = 0; channel < channels; channel++) {
+          sum += view.getInt16((frame * channels + channel) * 2, littleEndian);
+        }
+        mono[frame] = Math.max(-32768, Math.min(32767, Math.round(sum / channels)));
+      }
+      return mono;
+    }
+
+    function decodeWavToPcm16(bytes) {
+      if (bytes.byteLength < 12) throw new Error('WAV quá ngắn, thiếu RIFF/WAVE header.');
+      const riff = readFourCC(bytes, 0);
+      const wave = readFourCC(bytes, 8);
+      if ((riff !== 'RIFF' && riff !== 'RIFX') || wave !== 'WAVE') {
+        throw new Error('Dữ liệu được khai báo WAV nhưng không có container RIFF/WAVE hợp lệ.');
+      }
+
+      const littleEndian = riff === 'RIFF';
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      let offset = 12;
+      let fmt = null;
+      let dataStart = -1;
+      let dataSize = 0;
+
+      while (offset + 8 <= bytes.byteLength) {
+        const chunkId = readFourCC(bytes, offset);
+        const chunkSize = view.getUint32(offset + 4, littleEndian);
+        const chunkStart = offset + 8;
+        if (chunkStart + chunkSize > bytes.byteLength) throw new Error(`WAV chunk ${chunkId} vượt quá độ dài file.`);
+        if (chunkId === 'fmt ' && chunkSize >= 16) {
+          fmt = {
+            format: view.getUint16(chunkStart, littleEndian),
+            channels: view.getUint16(chunkStart + 2, littleEndian),
+            sampleRate: view.getUint32(chunkStart + 4, littleEndian),
+            blockAlign: view.getUint16(chunkStart + 12, littleEndian),
+            bitDepth: view.getUint16(chunkStart + 14, littleEndian)
+          };
+        } else if (chunkId === 'data') {
+          dataStart = chunkStart;
+          dataSize = chunkSize;
+          break;
+        }
+        offset = chunkStart + chunkSize + (chunkSize % 2);
+      }
+
+      if (!fmt) throw new Error('WAV thiếu fmt chunk.');
+      if (fmt.format !== 1) throw new Error(`WAV không phải PCM integer (format ${fmt.format}).`);
+      if (dataStart < 0) throw new Error('WAV thiếu data chunk.');
+      const bytesPerFrame = fmt.channels * 2;
+      if (fmt.blockAlign !== bytesPerFrame) throw new Error('WAV blockAlign không khớp channel/bit depth.');
+      assertAudioFormat(fmt.sampleRate, fmt.channels, fmt.bitDepth, dataSize);
+
+      const data = new Uint8Array(bytes.buffer, bytes.byteOffset + dataStart, dataSize);
+      return {
+        pcm: downmixPcm16(data, fmt.channels, littleEndian),
+        sampleRate: fmt.sampleRate,
+        channels: 1,
+        bitDepth: 16
+      };
+    }
+
+    function resamplePcm16(pcm, sourceRate, targetRate = AUDIO_TARGET_SAMPLE_RATE) {
+      if (sourceRate === targetRate) return new Int16Array(pcm);
+      const outputLength = Math.max(1, Math.round(pcm.length * targetRate / sourceRate));
+      const output = new Int16Array(outputLength);
+      const ratio = sourceRate / targetRate;
+      for (let i = 0; i < outputLength; i++) {
+        const sourcePosition = i * ratio;
+        const left = Math.floor(sourcePosition);
+        const right = Math.min(left + 1, pcm.length - 1);
+        const fraction = sourcePosition - left;
+        output[i] = Math.max(-32768, Math.min(32767, Math.round(pcm[left] * (1 - fraction) + pcm[right] * fraction)));
+      }
+      return output;
+    }
+
+    function trimPcmSilence(pcm, threshold = AUDIO_SILENCE_THRESHOLD) {
+      if (!(pcm instanceof Int16Array) || !pcm.length) return new Int16Array();
+      let start = 0;
+      let end = pcm.length - 1;
+      while (start <= end && Math.abs(pcm[start]) <= threshold) start += 1;
+      while (end >= start && Math.abs(pcm[end]) <= threshold) end -= 1;
+      if (start > end) return new Int16Array();
+      return pcm.slice(start, end + 1);
+    }
+
+    function decodeAudioResponse(base64Audio, mimeType = 'audio/L16;rate=24000', sampleRateHint = AUDIO_TARGET_SAMPLE_RATE) {
+      const bytes = decodeBase64ToBytes(base64Audio);
+      const mime = String(mimeType || '').toLowerCase();
+      const isWav = /audio\/(?:wav|x-wav|wave)/i.test(mime) || (bytes.byteLength >= 12 && readFourCC(bytes, 0) === 'RIFF');
+      const isRawPcm = !mime || /(?:audio|application)\/(?:l16|pcm|raw|x-pcm|octet-stream)/i.test(mime);
+      if (!isWav && !isRawPcm) {
+        throw new Error(`MIME audio không được hỗ trợ để ghép PCM: ${mimeType}.`);
+      }
+      const decoded = isWav
+        ? decodeWavToPcm16(bytes)
+        : (() => {
+            const params = parseMimeParameters(mimeType);
+            const sampleRate = Number(params.rate || params.samplerate || sampleRateHint || AUDIO_TARGET_SAMPLE_RATE);
+            const channels = Number(params.channels || params.channel || 1);
+            const bitDepth = Number(params.bits || params.bitdepth || 16);
+            assertAudioFormat(sampleRate, channels, bitDepth, bytes.byteLength);
+            return { pcm: downmixPcm16(bytes, channels, true), sampleRate, channels: 1, bitDepth: 16 };
+          })();
+
+      const pcm = trimPcmSilence(resamplePcm16(decoded.pcm, decoded.sampleRate, AUDIO_TARGET_SAMPLE_RATE));
+      if (!pcm.length) throw new Error('Audio sau khi decode chỉ chứa silence hoặc không có sample.');
+      return { pcm, sampleRate: AUDIO_TARGET_SAMPLE_RATE, channels: 1, bitDepth: 16 };
+    }
+
+    function fadePcmEdges(pcm, sampleRate = AUDIO_TARGET_SAMPLE_RATE, fadeMs = AUDIO_FADE_MS) {
+      const output = new Int16Array(pcm);
+      const fadeSamples = Math.min(Math.floor(sampleRate * fadeMs / 1000), Math.floor(output.length / 2));
+      for (let i = 0; i < fadeSamples; i++) {
+        const factor = (i + 1) / fadeSamples;
+        output[i] = Math.round(output[i] * factor);
+        output[output.length - 1 - i] = Math.round(output[output.length - 1 - i] * factor);
+      }
+      return output;
+    }
+
+    function mergePcmSegments(segments, silenceMs = AUDIO_GAP_MS) {
+      if (!Array.isArray(segments) || !segments.length) throw new Error('Không có PCM segment để ghép.');
+      const sampleRate = AUDIO_TARGET_SAMPLE_RATE;
+      const normalizedSegments = segments.map((segment, index) => {
+        if (!segment || !(segment.pcm instanceof Int16Array)) throw new Error(`Segment ${index + 1} không phải PCM 16-bit.`);
+        if (segment.sampleRate !== sampleRate || segment.channels !== 1 || segment.bitDepth !== 16) {
+          throw new Error(`Segment ${index + 1} không cùng chuẩn PCM 16-bit mono ${sampleRate} Hz.`);
+        }
+        if (!segment.pcm.length) throw new Error(`Segment ${index + 1} rỗng.`);
+        return fadePcmEdges(segment.pcm, sampleRate);
+      });
+      const silenceSamples = segments.length > 1 ? Math.round(sampleRate * Math.max(0, silenceMs) / 1000) : 0;
+      const totalLength = normalizedSegments.reduce((sum, pcm) => sum + pcm.length, 0) + silenceSamples * (normalizedSegments.length - 1);
+      const merged = new Int16Array(totalLength);
+      let offset = 0;
+      normalizedSegments.forEach((pcm, index) => {
+        merged.set(pcm, offset);
+        offset += pcm.length;
+        if (index < normalizedSegments.length - 1) offset += silenceSamples;
+      });
+      return { pcm: merged, sampleRate, channels: 1, bitDepth: 16 };
     }
 
     function int16ToWavBlob(pcmInt16, sampleRate = 24000) {
@@ -2186,8 +2972,10 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
       return new Blob(mp3Data, { type: 'audio/mp3' });
     }
 
-    function createAudioOutput(base64PCM, sampleRate = 24000) {
-      const pcmInt16 = decodeBase64ToInt16(base64PCM);
+    function createAudioOutputFromPcm(pcmInt16, sampleRate = AUDIO_TARGET_SAMPLE_RATE) {
+      if (!(pcmInt16 instanceof Int16Array) || !pcmInt16.length) {
+        throw new Error('PCM cuối rỗng hoặc không phải Int16Array.');
+      }
       const dateStr = new Date().toISOString().slice(0, 10);
 
       try {
@@ -2208,6 +2996,15 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
           fileName: `gemini-voice-${dateStr}.wav`
         };
       }
+    }
+
+    // Backward-compatible helper: it now decodes WAV/raw PCM correctly before encoding.
+    function createAudioOutput(audioDataOrResponse, sampleRate = AUDIO_TARGET_SAMPLE_RATE, mimeType = 'audio/L16') {
+      const response = audioDataOrResponse && typeof audioDataOrResponse === 'object' && audioDataOrResponse.audioData
+        ? audioDataOrResponse
+        : { audioData: audioDataOrResponse, sampleRate, mimeType };
+      const decoded = decodeAudioResponse(response.audioData, response.mimeType, response.sampleRate);
+      return createAudioOutputFromPcm(decoded.pcm, decoded.sampleRate);
     }
 
     // --- AUDIO PLAYER & VISUALIZER LOGIC ---
@@ -2456,6 +3253,7 @@ Sarah: Wow, this is going to revolutionize English listening practice!`;
         genBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sm"></i> <span>Đang Tạo Giọng Đọc...</span>`;
         genBtn.classList.add('opacity-80');
         if (cancelBtn) {
+          setCancelButtonVisible(true);
           cancelBtn.disabled = false;
           cancelBtn.innerHTML = `<i class="fa-solid fa-xmark text-sm"></i> <span>Hủy</span>`;
         }
