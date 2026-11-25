@@ -120,8 +120,8 @@
           <div class="flex items-center gap-1 bg-slate-950 border border-slate-700/80 rounded-lg px-2 py-1">
             <i class="fa-solid fa-robot text-xs text-slate-400 pl-1"></i>
             <select id="modelSelect" onchange="handleModelSelectChange(this.value)" class="bg-transparent text-xs text-slate-200 focus:outline-none pr-1 py-0.5 border-none cursor-pointer max-w-[170px] truncate">
-              <!-- Default Options (Free Tier TTS prioritized) -->
-              <option value="gemini-2.5-flash-preview-tts" class="bg-slate-900 text-slate-200" selected>gemini-2.5-flash-preview-tts</option>
+              <!-- Default Options (Gemini 3.8 TTS prioritized) -->
+              <option value="gemini-3.8-flash-tts" class="bg-slate-900 text-slate-200" selected>gemini-3.8-flash-tts</option>
               <option value="__CUSTOM__" class="bg-slate-900 text-amber-300 font-semibold">+ Nhập mã Model tùy chỉnh...</option>
             </select>
             <button onclick="fetchAvailableModels()" title="Làm mới toàn bộ danh sách Model từ API" class="text-slate-400 hover:text-indigo-400 p-1 transition">
@@ -474,13 +474,14 @@ Mom: Of course! I loved the part about endangered animals."
     }
 
     const FALLBACK_MODELS = [
-      "gemini-3.8-flash-lite-tts",
       "gemini-3.8-flash-tts",
+      "gemini-3.8-flash-lite-tts",
       "gemini-3.1-flash-tts-preview",
       "gemini-2.5-flash-preview-tts",
       "gemini-2.5-flash-tts"
     ];
-    const DEFAULT_MODEL = FALLBACK_MODELS[0];
+    const PRIMARY_MODEL = 'gemini-3.8-flash-tts';
+    const DEFAULT_MODEL = PRIMARY_MODEL;
     const DEPRECATED_MODEL_PATTERNS = [
       /^gemini-2\.0-/,
       /^gemini-1\.5-/
@@ -740,6 +741,24 @@ Mom: Of course! I loved the part about endangered animals."
         return custom || '__CUSTOM__';
       }
       return select.value || DEFAULT_MODEL;
+    }
+
+    function selectPrimaryModelOnReload() {
+      const modelSelect = document.getElementById('modelSelect');
+      if (!modelSelect) return;
+
+      let primaryOption = Array.from(modelSelect.options).find(option => option.value === PRIMARY_MODEL);
+      if (!primaryOption) {
+        primaryOption = document.createElement('option');
+        primaryOption.value = PRIMARY_MODEL;
+        primaryOption.textContent = PRIMARY_MODEL;
+        primaryOption.className = 'bg-slate-900 text-slate-200';
+        modelSelect.insertBefore(primaryOption, modelSelect.querySelector('option[value="__CUSTOM__"]') || null);
+      }
+
+      modelSelect.value = PRIMARY_MODEL;
+      document.getElementById('customModelContainer')?.classList.add('hidden');
+      localStorage.setItem('selectedModel', PRIMARY_MODEL);
     }
 
     function applyPlaybackSpeedUI(speed) {
@@ -1084,12 +1103,10 @@ Mom: Of course! I loved the part about endangered animals."
 
       const restoredState = readStudioState();
       applyStudioState(restoredState);
+      selectPrimaryModelOnReload();
 
-      // Ensure selected model persistence is consistent with restored state
-      const restoredSelectedModel = restoredState.selectedModel || DEFAULT_MODEL;
-      if (restoredSelectedModel !== '__CUSTOM__') {
-        localStorage.setItem('selectedModel', restoredSelectedModel);
-      }
+      // Always start a fresh page load on the primary Gemini 3.8 model.
+      localStorage.setItem('selectedModel', PRIMARY_MODEL);
 
       // Script Textarea character counter + debounced save
       const scriptArea = document.getElementById('scriptInput');
@@ -2212,6 +2229,10 @@ Sarah: Same here! It is going to be amazing for listening practice.`;
       return /^(?:gemini-3\.1-flash-tts-preview|gemini-3\.8-flash(?:-lite)?-tts)$/i.test(String(modelName || ''));
     }
 
+    function supportsLegacyTtsStylePrompt(modelName) {
+      return /^gemini-2\.5-flash(?:-preview)?-tts$/i.test(String(modelName || ''));
+    }
+
     function combineTtsStyle(...styles) {
       return styles
         .map(style => String(style || '').trim())
@@ -2235,6 +2256,41 @@ Sarah: Same here! It is going to be amazing for listening practice.`;
       }];
     }
 
+    function buildLegacyTtsPrompt(ttsMetadata) {
+      const globalStyles = [];
+      const speakerStyles = new Map();
+
+      (Array.isArray(ttsMetadata?.structuredParts) ? ttsMetadata.structuredParts : []).forEach(part => {
+        const style = String(part?.style || '').trim();
+        if (!style) return;
+
+        if (part.speaker) {
+          const speaker = String(part.speaker);
+          if (!speakerStyles.has(speaker)) speakerStyles.set(speaker, new Set());
+          speakerStyles.get(speaker).add(style);
+        } else if (!globalStyles.includes(style)) {
+          globalStyles.push(style);
+        }
+      });
+
+      const styleLines = [
+        ...globalStyles.map(style => `- Overall delivery: ${style}`),
+        ...Array.from(speakerStyles.entries()).map(([speaker, styles]) => (
+          `- ${speaker}: ${Array.from(styles).join('; ')}`
+        ))
+      ];
+
+      return [
+        'Read the following transcript aloud as spoken audio.',
+        'VOICE AND DELIVERY DIRECTIONS:',
+        ...styleLines,
+        'Keep the transcript wording unchanged. Do not add or omit lines.',
+        'Do not read the voice directions or speaker labels aloud.',
+        'TRANSCRIPT:',
+        String(ttsMetadata?.transcript || '')
+      ].join('\n');
+    }
+
     function createTtsPayload({ transcript, structuredParts, generationConfig }) {
       return {
         // __tts is client-only metadata. It is converted to the model-specific
@@ -2252,14 +2308,16 @@ Sarah: Same here! It is going to be amazing for listening practice.`;
       const requestPayload = Object.assign({}, payload);
       const ttsMetadata = requestPayload.__tts;
       delete requestPayload.__tts;
-      // TTS models generally reject systemInstruction. Keep the API request
-      // transcript-only unless the model supports structured speech metadata.
+      // TTS models generally reject systemInstruction. Use structured metadata
+      // where supported; Gemini 2.5 gets the legacy style prompt in contents.
       delete requestPayload.systemInstruction;
 
       if (!ttsMetadata) return requestPayload;
 
       if (supportsStructuredTtsMetadata(modelName) && ttsMetadata.structuredParts?.length) {
         requestPayload.contents = buildStructuredTtsContents(ttsMetadata.structuredParts);
+      } else if (supportsLegacyTtsStylePrompt(modelName)) {
+        requestPayload.contents = buildTtsContents(buildLegacyTtsPrompt(ttsMetadata));
       } else {
         requestPayload.contents = buildTtsContents(ttsMetadata.transcript);
       }
